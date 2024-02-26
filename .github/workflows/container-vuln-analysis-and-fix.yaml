@@ -34,4 +34,7 @@ jobs:
       run: |
         echo ${{ runner.arch }}
         echo ${{ runner.os }}
-        echo $VALUES_FILE
+        runner_arch_lowercase = ${{ runner.arch | lower }}
+        runner_os_lowercase = ${{ runner.os | lower }}
+        echo $runner_arch_lowercase
+        echo $runner_os_lowercase
