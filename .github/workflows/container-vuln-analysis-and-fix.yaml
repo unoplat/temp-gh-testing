@@ -1,0 +1,37 @@
+name: Develop Branch Action
+
+# todo: add container vulnerability scan
+
+on:
+  pull_request_target:
+    types: [opened]
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  dev-pr-merge:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout our repository
+      uses: actions/checkout@v4
+    - name: Read JSON Config
+      id: read_json
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
+          core.setOutput('config', config);
+    - name: Conditional Docker Image Scan
+      working-directory: charts
+      if: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
+      env:
+        VALUES_FILE: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
+      run: |
+        echo ${{ github.runner_arch }}
+        echo ${{ github.runner_os }}
+        echo $VALUES_FILE
