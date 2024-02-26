@@ -32,6 +32,6 @@ jobs:
       env:
         VALUES_FILE: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
       run: |
-        echo ${{ github.runner_arch }}
-        echo ${{ github.runner_os }}
+        echo ${{ runner.arch }}
+        echo ${{ runner.os }}
         echo $VALUES_FILE
