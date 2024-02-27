@@ -18,6 +18,8 @@ jobs:
     steps:
     - name: Checkout our repository
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
     - name: Read JSON Config
       id: read_json
       uses: actions/github-script@v5
@@ -48,7 +50,7 @@ jobs:
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git pull origin
-        git add charts/*
+        git add charts/docker_images.json
         git commit -m "added charts and scan results"
         echo ${{ github.head_ref }}
         git push origin ${{ github.head_ref }}        
