@@ -34,7 +34,3 @@ jobs:
       run: |
         echo ${{ runner.arch }}
         echo ${{ runner.os }}
-        runner_arch_lowercase = ${{ runner.arch | lower }}
-        runner_os_lowercase = ${{ runner.os | lower }}
-        echo $runner_arch_lowercase
-        echo $runner_os_lowercase
