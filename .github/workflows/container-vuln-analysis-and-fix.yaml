@@ -81,7 +81,7 @@ jobs:
         id: createfile
         run: |
           timestamp=$(date +%Y%m%d%H%M%S)
-          touch reports/containercontainer-report-$timestamp.json
+          touch reports/container-security-analysis/container-report-$timestamp.json
           echo "::set-output name=timestamp::$timestamp"
           
       - name: Generate Trivy Report 
