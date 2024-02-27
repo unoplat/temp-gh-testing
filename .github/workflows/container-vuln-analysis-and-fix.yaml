@@ -85,16 +85,18 @@ jobs:
       - name: Create an empty json file for current scan with current timestamp
         id: createfile
         run: |
-          timestamp=$(date +%Y%m%d%H%M%S)
+          timestamp=$(date +%Y%m%d%H%M)
+          export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
           touch reports/container-security-analysis/container-report-$timestamp.json
           echo "::set-output name=timestamp::$timestamp"
+          echo "::set-output name=docker_image_name::$IMAGE_NAME"
           
       - name: Generate Trivy Report 
         uses: aquasecurity/trivy-action@master
         with: 
           scan-type: 'image' 
           format: 'json' 
-          output: "reports/container-security-analysis/container-report-${{ steps.createfile.outputs.timestamp }}.json" 
+          output: "reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
           ignore-unfixed: true 
           vuln-type: "os"
           severity: 'CRITICAL,HIGH' 
