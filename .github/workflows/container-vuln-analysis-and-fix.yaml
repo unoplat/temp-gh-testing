@@ -10,10 +10,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  dev-pr-merge:
+  dev-pr:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    outputs:
+      current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
 
     steps:
     - name: Checkout our repository
@@ -44,28 +46,51 @@ jobs:
           rm docker_images.json
         fi
         ./image-scan
-        rm charts/image-scan
-        rm charts/image-scan*.tar.gz
+        rm image-scan
+        rm image-scan*.tar.gz
 
-    - name: Push changes to our repository
-      run: |
-        git config --global user.name "GitHub Action"
-        git config --global user.email "action@github.com"
-        
-        git pull origin
-        git add charts/*
-        git add reports/*
-        git commit -m "added charts and scan results"
-        echo main
-        git push origin main
+    # - name: Push changes to our repository
+    #   run: |
+    #     git config --global user.name "GitHub Action"
+    #     git config --global user.email "action@github.com"
+    #     git pull origin
+    #     git add charts/*
+    #     git add reports/*
+    #     git commit -m "added charts and scan results"
+    #     echo main
+    #     git push origin main
 
     - name: Generate Matrix
-      id: set-matrix
+      id: set-image-matrix
       uses: actions/github-script@v5
       with:
         script: |
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('images.json', 'utf8'));
+          const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
           const valuesArray = Object.values(data);
-          core.setOutput('matrix', JSON.stringify(valuesArray));
-        
+          core.setOutput('image-matrix', JSON.stringify(valuesArray));
+
+  use-container-scan-matrix:
+    needs: dev-pr
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        images: ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
+    steps:
+      - name: Create an empty json file for current scan with current timestamp
+        id: createfile
+        run: |
+          timestamp=$(date +%Y%m%d%H%M%S)
+          touch reports/containercontainer-report-$timestamp.json
+          echo "::set-output name=timestamp::$timestamp"
+          
+      - name: Generate Trivy Report 
+        uses: aquasecurity/trivy-action@master
+        with: 
+          scan-type: 'image' 
+          format: 'json' 
+          output: "reports/container-security-analysis/container-report-${{ steps.createfile.outputs.timestamp }}.json" 
+          ignore-unfixed: true 
+          vuln-type: "os"
+          severity: 'CRITICAL,HIGH' 
+          image-ref: ${{ matrix.images }} 
