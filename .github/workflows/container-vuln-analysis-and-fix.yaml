@@ -104,7 +104,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git pull origin
+          git pull origin main
           git add reports/*
           git commit -m "added scan results"
           echo main
