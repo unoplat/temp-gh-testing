@@ -19,7 +19,7 @@ jobs:
     - name: Checkout our repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.head_ref }}
+        ref: main
     - name: Read JSON Config
       id: read_json
       uses: actions/github-script@v5
@@ -52,5 +52,5 @@ jobs:
         git pull origin
         git add charts/docker_images.json
         git commit -m "added charts and scan results"
-        echo ${{ github.head_ref }}
-        git push origin ${{ github.head_ref }}        
+        echo main
+        git push origin main
