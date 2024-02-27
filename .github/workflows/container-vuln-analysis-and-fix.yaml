@@ -40,6 +40,9 @@ jobs:
         os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
         echo $arch
         echo $os
+        if [ "$arch" = "x64" ]; then
+          arch="amd64"
+        fi
         wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/v1.2.5/image-scan-v1.2.5-$os-$arch.tar.gz
         tar -xzf image-scan-v1.2.5-$os-$arch.tar.gz
         if [ -f docker_images.json ]; then
