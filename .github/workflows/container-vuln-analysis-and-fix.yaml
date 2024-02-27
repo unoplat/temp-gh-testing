@@ -30,7 +30,7 @@ jobs:
       working-directory: charts
       if: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
       env:
-        VALUES_FILE: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
+        HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
       run: |
         arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
         os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
