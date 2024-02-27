@@ -87,7 +87,6 @@ jobs:
         run: |
           timestamp=$(date +%Y%m%d%H%M)
           export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
-          touch reports/container-security-analysis/container-report-$timestamp.json
           echo "::set-output name=timestamp::$timestamp"
           echo "::set-output name=docker_image_name::$IMAGE_NAME"
           
