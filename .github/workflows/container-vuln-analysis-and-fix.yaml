@@ -44,17 +44,21 @@ jobs:
           rm docker_images.json
         fi
         ./image-scan
+        rm charts/image-scan
+        rm charts/image-scan*.tar.gz
 
     - name: Push changes to our repository
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
+        
         git pull origin
-        git add charts/docker_images.json
+        git add charts/*
+        git add reports/*
         git commit -m "added charts and scan results"
         echo main
         git push origin main
-        
+
     - name: Generate Matrix
       id: set-matrix
       uses: actions/github-script@v5
