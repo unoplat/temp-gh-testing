@@ -32,5 +32,10 @@ jobs:
       env:
         VALUES_FILE: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
       run: |
-        echo ${{ runner.arch }}
-        echo ${{ runner.os }}
+        arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
+        os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
+        echo $arch
+        echo $os
+        wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/v1.2.5/image-scan-v1.2.5-$os-$arch.tar.gz
+        tar -xzf image-scan-v1.2.5-$os-$arch.tar.gz
+        ./image-scan
