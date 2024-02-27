@@ -54,3 +54,14 @@ jobs:
         git commit -m "added charts and scan results"
         echo main
         git push origin main
+        
+    - name: Generate Matrix
+      id: set-matrix
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('images.json', 'utf8'));
+          const valuesArray = Object.values(data);
+          core.setOutput('matrix', JSON.stringify(valuesArray));
+        
