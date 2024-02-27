@@ -77,6 +77,11 @@ jobs:
       matrix:
         images: ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
     steps:
+      - name: Checkout our repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
       - name: Create an empty json file for current scan with current timestamp
         id: createfile
         run: |
