@@ -36,7 +36,7 @@ jobs:
         
     - name: Conditional Docker Image Scan
       working-directory: charts
-      if: ${{ steps.read_json.outputs.dockerImageScan == true }}
+      if: ${{ steps.read_json.outputs.dockerImageScan }}
       env:
         HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
       run: |
@@ -61,7 +61,7 @@ jobs:
     - name: Generate Matrix
       id: set-image-matrix
       uses: actions/github-script@v5
-      if: ${{ steps.read_json.outputs.dockerImageScan == true }}
+      if: ${{ steps.read_json.outputs.dockerImageScan }}
       with:
         script: |
           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
