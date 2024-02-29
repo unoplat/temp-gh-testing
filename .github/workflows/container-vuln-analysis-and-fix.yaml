@@ -64,8 +64,12 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
-          const keysArray = Object.keys(data);
+          let keysArray = [];
+          if (fs.existsSync('charts/docker_images.json')) {
+            const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
+            keysArray = Object.keys(data);
+          }
+          // Always set the output, defaulting to an empty array if the condition is false
           core.setOutput('image-matrix', JSON.stringify(keysArray));
 
   use-container-scan-matrix:
@@ -74,8 +78,7 @@ jobs:
     if: ${{ needs.dev-pr.outputs.should_run_next_job }}
     strategy:
       matrix:
-        images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix) || '[]'}}
-        
+        images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}    
     steps:
       - name: Checkout our repository
         uses: actions/checkout@v4
