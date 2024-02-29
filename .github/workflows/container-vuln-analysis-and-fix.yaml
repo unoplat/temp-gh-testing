@@ -99,8 +99,8 @@ jobs:
       - name: Archive Trivy Reports
         uses: actions/upload-artifact@v4
         with:
-          name: container-report-${{ steps.createfile.outputs.timestamp }}
-          path: reports/container-security-analysis/
+          name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
+          path: reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
   commit-reports:
     needs: use-container-scan-matrix
     runs-on: ubuntu-latest
