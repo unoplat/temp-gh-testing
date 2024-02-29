@@ -73,11 +73,11 @@ jobs:
       run: |
         TIMESTAMP=$(date +'%Y%m%d%H%M')
         echo "::set-output name=timeStamp::${TIMESTAMP}"
-        mkdir reports/container-security-analysis/${TIMESTAMP}
+        mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git pull origin
-        git add reports/container-security-analysis/${TIMESTAMP}
+        git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
         git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP}"
         git push origin main      
 
@@ -115,7 +115,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
-          path: reports/container-security-analysis/${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
+          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
   commit-reports:
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
@@ -129,7 +129,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: reports/container-security-analysis/${{needs.dev-pr.outputs.timestamp}}
+          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
 
       - name: Configure Git
         run: |
