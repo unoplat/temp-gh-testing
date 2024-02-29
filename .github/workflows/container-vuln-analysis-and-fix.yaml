@@ -64,6 +64,7 @@ jobs:
       if: ${{ steps.read_json.outputs.dockerImageScan }}
       with:
         script: |
+          const fs = require('fs');
           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
           let keysArray = Object.keys(data);
           core.setOutput('image-matrix', JSON.stringify(keysArray));
