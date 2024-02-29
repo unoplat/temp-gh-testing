@@ -57,16 +57,15 @@ jobs:
         ./image-scan
         rm image-scan
         rm image-scan*.tar.gz
-        
+          
     - name: Generate Matrix
       id: set-image-matrix
-      if: ${{ steps.read_json.outputs.dockerImageScan == true }}
       uses: actions/github-script@v5
       with:
         script: |
           const fs = require('fs');
           let keysArray = '["default-version"]';
-          if (fs.existsSync('charts/docker_images.json')) {
+          if (fs.existsSync('charts/docker_images.json') && && process.env.DOCKER_IMAGE_SCAN === 'true') {
             const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
             keysArray = Object.keys(data);
           }
