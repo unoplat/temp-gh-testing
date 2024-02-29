@@ -107,7 +107,7 @@ jobs:
         with: 
           scan-type: 'image' 
           format: 'json' 
-          output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
+          output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json" 
           ignore-unfixed: true 
           vuln-type: "os"
           severity: 'CRITICAL,HIGH' 
@@ -115,8 +115,47 @@ jobs:
       - name: Archive Trivy Reports
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
-          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
+          name: ${{ steps.createfile.outputs.docker_image_name }}-container-report
+          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json
+              # check whether there are any OS package vulnerabilities 
+      - name: Check vulnerability count 
+        id: vuln_count 
+        run: | 
+          report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json
+          vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
+          echo "vuln_count=$vuln_count"
+          echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT  
+
+                     
+      - name: Run Copa action 
+        if: steps.vuln_count.outputs.vuln_count != '0' 
+        id: copa 
+        # using main for testing purposes 
+        # use a tag (such as v1 or v1.0.1) at a bare minimum 
+        # recommendation is to pin to a digest for security and stability 
+        # and rely on dependabot for digest/version updates 
+        uses: project-copacetic/copa-action@v1.2.0
+        with: 
+          image: ${{ matrix.images }} 
+          image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json" 
+          patched-tag: "patched"
+
+      - name: Extract Image name and tag
+        if: steps.vuln_count.outputs.vuln_count != '0' 
+        id: image_name_and_tag
+        run: |
+          IMAGE_NAME=$(echo ${{ steps.copa.outputs.patched-image }} | awk -F':' '{print $1}')
+          IMAGE_TAG=$(echo ${{ steps.copa.outputs.patched-image }} | awk -F':' '{print $2}')
+          echo "::set-output name=image_name::$IMAGE_NAME"
+          echo "::set-output name=image_tag::$IMAGE_TAG"   
+                   
+      - name: Build and publish "head" Docker image
+        uses: VaultVulp/gp-docker-action@1.6.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }} # Provide GITHUB_TOKEN to login into the GitHub Packages
+          image-name: ${{ steps.image_name_and_tag.outputs.image_name }} # Provide Docker image name
+          image-tag: ${{ steps.copa.outputs.patched-image }} # Provide Docker image tag
+          
   commit-reports:
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
