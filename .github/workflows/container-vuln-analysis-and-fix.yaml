@@ -65,7 +65,7 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          let keysArray = {};
+          let keysArray = '["default-version"]';
           if (fs.existsSync('charts/docker_images.json')) {
             const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
             keysArray = Object.keys(data);
