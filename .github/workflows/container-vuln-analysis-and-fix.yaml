@@ -68,82 +68,82 @@ jobs:
           const keysArray = Object.keys(data);
           core.setOutput('image-matrix', JSON.stringify(keysArray));
 
-  # use-container-scan-matrix:
-  #   needs: dev-pr
-  #   runs-on: ubuntu-latest
-  #   if: ${{ needs.dev-pr.outputs.should_run_next_job }}
-  #   strategy:
-  #     matrix:
-  #       images: ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
+  use-container-scan-matrix:
+    needs: dev-pr
+    runs-on: ubuntu-latest
+    if: ${{ needs.dev-pr.outputs.should_run_next_job }}
+    strategy:
+      matrix:
+        images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix) || '[]'}}
         
-  #   steps:
-  #     - name: Checkout our repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         ref: main
+    steps:
+      - name: Checkout our repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
-  #     - name: Create an empty json file for current scan with current timestamp
-  #       id: createfile
-  #       run: |
-  #         timestamp=$(date +%Y%m%d%H%M)
-  #         export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
-  #         echo "::set-output name=timestamp::$timestamp"
-  #         echo "::set-output name=docker_image_name::$IMAGE_NAME"
-  #     - name: Debug Output Paths
-  #       run: |
-  #         echo "Docker Image Name: ${{ steps.createfile.outputs.docker_image_name }}"
-  #         echo "Timestamp: ${{ steps.createfile.outputs.timestamp }}"
+      - name: Create an empty json file for current scan with current timestamp
+        id: createfile
+        run: |
+          timestamp=$(date +%Y%m%d%H%M)
+          export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
+          echo "::set-output name=timestamp::$timestamp"
+          echo "::set-output name=docker_image_name::$IMAGE_NAME"
+      - name: Debug Output Paths
+        run: |
+          echo "Docker Image Name: ${{ steps.createfile.outputs.docker_image_name }}"
+          echo "Timestamp: ${{ steps.createfile.outputs.timestamp }}"
          
-  #     - name: Generate Trivy Report 
-  #       uses: aquasecurity/trivy-action@master
-  #       with: 
-  #         scan-type: 'image' 
-  #         format: 'json' 
-  #         output: "reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
-  #         ignore-unfixed: true 
-  #         vuln-type: "os"
-  #         severity: 'CRITICAL,HIGH' 
-  #         image-ref: ${{ matrix.images }} 
-  #     - name: Archive Trivy Reports
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
-  #         path: reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
-  # commit-reports:
-  #   needs: [use-container-scan-matrix,dev-pr]
-  #   runs-on: ubuntu-latest
-  #   if: ${{ needs.dev-pr.outputs.should_run_next_job }}
-  #   steps:
-  #     - name: Checkout our repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         ref: main
+      - name: Generate Trivy Report 
+        uses: aquasecurity/trivy-action@master
+        with: 
+          scan-type: 'image' 
+          format: 'json' 
+          output: "reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
+          ignore-unfixed: true 
+          vuln-type: "os"
+          severity: 'CRITICAL,HIGH' 
+          image-ref: ${{ matrix.images }} 
+      - name: Archive Trivy Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
+          path: reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
+  commit-reports:
+    needs: [use-container-scan-matrix,dev-pr]
+    runs-on: ubuntu-latest
+    if: ${{ needs.dev-pr.outputs.should_run_next_job }}
+    steps:
+      - name: Checkout our repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
-  #     - name: Download all artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         path: reports/container-security-analysis/
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: reports/container-security-analysis/
 
-  #     - name: Configure Git
-  #       run: |
-  #         git config --global user.name "GitHub Action"
-  #         git config --global user.email "action@github.com"
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
 
-  #     - name: Commit and Push Changes
-  #       run: |
-  #         if git status --porcelain; then
-  #           git pull origin main
-  #           git add reports/*
-  #           git commit -m "Add scan results"
-  #           git push origin main
-  #         else
-  #           echo "No changes to commit."
-  #         fi
-  # scan-and-patch-images:
-  #   needs: [commit-reports,dev-pr]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout our repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         ref: main
+      - name: Commit and Push Changes
+        run: |
+          if git status --porcelain; then
+            git pull origin main
+            git add reports/*
+            git commit -m "Add scan results"
+            git push origin main
+          else
+            echo "No changes to commit."
+          fi
+  scan-and-patch-images:
+    needs: [commit-reports,dev-pr]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout our repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
