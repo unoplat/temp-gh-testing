@@ -30,6 +30,8 @@ jobs:
           const fs = require('fs');
           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
           core.setOutput('config', config);
+    
+        
     - name: Conditional Docker Image Scan
       working-directory: charts
       if: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
@@ -43,8 +45,10 @@ jobs:
         if [ "$arch" = "x64" ]; then
           arch="amd64"
         fi
-        wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/v1.2.5/image-scan-v1.2.5-$os-$arch.tar.gz
-        tar -xzf image-scan-v1.2.5-$os-$arch.tar.gz
+        LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-ci-cd-scripts/releases/latest | jq -r '.tag_name' | xargs)
+        echo "Latest release info: $LATEST_RELEASE"
+        wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/$LATEST_RELEASE/image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
+        tar -xzf image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
         if [ -f docker_images.json ]; then
           rm docker_images.json
         fi
@@ -59,8 +63,8 @@ jobs:
         script: |
           const fs = require('fs');
           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
-          const valuesArray = Object.values(data);
-          core.setOutput('image-matrix', JSON.stringify(valuesArray));
+          const keysArray = Object.keys(data);
+          core.setOutput('image-matrix', JSON.stringify(keysArray));
 
   use-container-scan-matrix:
     needs: dev-pr
