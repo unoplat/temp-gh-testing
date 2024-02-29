@@ -73,7 +73,6 @@ jobs:
       run: |
         TIMESTAMP=$(date +'%Y%m%d%H%M')
         echo "::set-output name=timeStamp::${TIMESTAMP}"
-        pwd
         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
