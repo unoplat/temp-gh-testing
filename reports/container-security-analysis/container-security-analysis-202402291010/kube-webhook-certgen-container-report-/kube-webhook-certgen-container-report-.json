@@ -1,0 +1,96 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2024-02-29T10:10:52.213727592Z",
+  "ArtifactName": "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20221220-controller-v1.5.1-58-g787ea74b6",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "OS": {
+      "Family": "debian",
+      "Name": "11.6"
+    },
+    "ImageID": "sha256:057e08108889890dcd4bf6db63f2c72d24b0ddba549cafc2ea3ceea67599b990",
+    "DiffIDs": [
+      "sha256:cb60fb9b862c6a89f92e484bc3b72bbc0352b41166df5c4a68bfb52f52504a7d",
+      "sha256:b952ff3a0bebd9fa68435e7bc959c2a170e495d7deac764f881d24004036d774"
+    ],
+    "RepoTags": [
+      "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20221220-controller-v1.5.1-58-g787ea74b6"
+    ],
+    "RepoDigests": [
+      "registry.k8s.io/ingress-nginx/kube-webhook-certgen@sha256:4d99688e557396f5baa150e019ff7d5b7334f9b9f9a8dab64038c5c2a006f6b5"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "author": "Bazel",
+      "created": "2022-12-20T17:58:00.212764955Z",
+      "history": [
+        {
+          "author": "Bazel",
+          "created": "1970-01-01T00:00:00Z",
+          "created_by": "bazel build ..."
+        },
+        {
+          "created": "2022-12-20T17:58:00.212764955Z",
+          "created_by": "ARG BUILDPLATFORM",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2022-12-20T17:58:00.212764955Z",
+          "created_by": "ARG TARGETARCH",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2022-12-20T17:58:00.212764955Z",
+          "created_by": "WORKDIR /",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2022-12-20T17:58:00.212764955Z",
+          "created_by": "COPY /workspace/kube-webhook-certgen /kube-webhook-certgen # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2022-12-20T17:58:00.212764955Z",
+          "created_by": "USER 65532:65532",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2022-12-20T17:58:00.212764955Z",
+          "created_by": "ENTRYPOINT [\"/kube-webhook-certgen\"]",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:cb60fb9b862c6a89f92e484bc3b72bbc0352b41166df5c4a68bfb52f52504a7d",
+          "sha256:b952ff3a0bebd9fa68435e7bc959c2a170e495d7deac764f881d24004036d774"
+        ]
+      },
+      "config": {
+        "Entrypoint": [
+          "/kube-webhook-certgen"
+        ],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
+        ],
+        "User": "65532:65532",
+        "WorkingDir": "/"
+      }
+    }
+  },
+  "Results": [
+    {
+      "Target": "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20221220-controller-v1.5.1-58-g787ea74b6 (debian 11.6)",
+      "Class": "os-pkgs",
+      "Type": "debian"
+    }
+  ]
+}
