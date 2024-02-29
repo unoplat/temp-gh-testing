@@ -73,11 +73,11 @@ jobs:
       run: |
         TIMESTAMP=$(date +'%Y%m%d%H%M')
         echo "::set-output name=timeStamp::${TIMESTAMP}"
-        mkdir reports/reports/container-security-analysis/${TIMESTAMP}
+        mkdir reports/container-security-analysis/${TIMESTAMP}
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git pull origin
-        git add reports/reports/container-security-analysis/${TIMESTAMP}
+        git add reports/container-security-analysis/${TIMESTAMP}
         git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP}"
         git push origin main      
 
