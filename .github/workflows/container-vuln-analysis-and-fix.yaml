@@ -66,20 +66,21 @@ jobs:
           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
           let keysArray = Object.keys(data);
           core.setOutput('image-matrix', JSON.stringify(keysArray));
-
+# use this file later for summarising container security reports
     - name: Set timestamp
       id: timestamp
       if: ${{ steps.read_json.outputs.dockerImageScan == 'true' }}
       run: |
         TIMESTAMP=$(date +'%Y%m%d%H%M')
-        echo "::set-output name=timeStamp::${TIMESTAMP}"
+        echo "::set-output name=timeStamp::${TIMESTAMP}"  
         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
+        touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git pull origin
         git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
         git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP}"
-        git push origin main      
+        git push origin main
 
   use-container-scan-matrix:
     needs: dev-pr
@@ -106,7 +107,7 @@ jobs:
         with: 
           scan-type: 'image' 
           format: 'json' 
-          output: "reports/container-security-analysis/${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
+          output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
           ignore-unfixed: true 
           vuln-type: "os"
           severity: 'CRITICAL,HIGH' 
