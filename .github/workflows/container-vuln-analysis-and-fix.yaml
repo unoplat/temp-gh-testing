@@ -139,6 +139,7 @@ jobs:
           image: ${{ matrix.images }} 
           image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json" 
           patched-tag: "patched"
+          timeout: 15m
 
       - name: Extract Image name and tag
         if: steps.vuln_count.outputs.vuln_count != '0' 
