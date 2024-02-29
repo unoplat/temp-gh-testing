@@ -15,7 +15,7 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     outputs:
-      should_run_next_job: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
+      should_run_next_job: ${{ steps.read_json.outputs.dockerImageScan }}
       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
 
     steps:
@@ -31,11 +31,12 @@ jobs:
           const fs = require('fs');
           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
           core.setOutput('config', config);
+          core.setOutput('dockerImageScan',config.dockerImageScan)
     
         
     - name: Conditional Docker Image Scan
       working-directory: charts
-      if: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
+      if: ${{ steps.read_json.outputs.dockerImageScan }}
       env:
         HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
       run: |
@@ -59,12 +60,12 @@ jobs:
         
     - name: Generate Matrix
       id: set-image-matrix
-      if: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
+      if: ${{ steps.read_json.outputs.dockerImageScan }}
       uses: actions/github-script@v5
       with:
         script: |
           const fs = require('fs');
-          let keysArray = [];
+          let keysArray = {};
           if (fs.existsSync('charts/docker_images.json')) {
             const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
             keysArray = Object.keys(data);
