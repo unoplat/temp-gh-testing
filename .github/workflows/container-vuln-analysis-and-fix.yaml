@@ -61,17 +61,11 @@ jobs:
     - name: Generate Matrix
       id: set-image-matrix
       uses: actions/github-script@v5
-      env:
-        DOCKER_IMAGE_SCAN: ${{ steps.read_json.outputs.dockerImageScan }}
+      if: ${{ steps.read_json.outputs.dockerImageScan == true }}
       with:
         script: |
-          const fs = require('fs');
-          let keysArray = { version: ["default-version"] };
-          if (fs.existsSync('charts/docker_images.json') && process.env.DOCKER_IMAGE_SCAN === 'true') {
-            const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
-            keysArray = Object.keys(data);
-          }
-          // Always set the output, defaulting to an empty array if the condition is false
+          const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
+          let keysArray = Object.keys(data);
           core.setOutput('image-matrix', JSON.stringify(keysArray));
 
   use-container-scan-matrix:
