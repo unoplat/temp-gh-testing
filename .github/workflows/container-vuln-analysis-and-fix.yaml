@@ -61,6 +61,8 @@ jobs:
     - name: Generate Matrix
       id: set-image-matrix
       uses: actions/github-script@v5
+      env:
+        DOCKER_IMAGE_SCAN: ${{ steps.read_json.outputs.dockerImageScan }}
       with:
         script: |
           const fs = require('fs');
