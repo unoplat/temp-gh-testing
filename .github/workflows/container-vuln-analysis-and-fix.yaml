@@ -15,6 +15,7 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     outputs:
+      should_run_next_job: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
 
     steps:
@@ -58,6 +59,7 @@ jobs:
         
     - name: Generate Matrix
       id: set-image-matrix
+      if: ${{ fromJson(steps.read_json.outputs.config).dockerImageScan }}
       uses: actions/github-script@v5
       with:
         script: |
@@ -69,9 +71,11 @@ jobs:
   use-container-scan-matrix:
     needs: dev-pr
     runs-on: ubuntu-latest
+    if: ${{ needs.dev-pr.outputs.should_run_next_job }}
     strategy:
       matrix:
         images: ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
+        
     steps:
       - name: Checkout our repository
         uses: actions/checkout@v4
@@ -106,8 +110,9 @@ jobs:
           name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
           path: reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
   commit-reports:
-    needs: use-container-scan-matrix
+    needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
+    if: ${{ needs.dev-pr.outputs.should_run_next_job }}
     steps:
       - name: Checkout our repository
         uses: actions/checkout@v4
@@ -134,3 +139,11 @@ jobs:
           else
             echo "No changes to commit."
           fi
+  scan-and-patch-images:
+    needs: [commit-reports,dev-pr]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout our repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
