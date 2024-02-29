@@ -72,7 +72,7 @@ jobs:
   use-container-scan-matrix:
     needs: dev-pr
     runs-on: ubuntu-latest
-    if: ${{ needs.dev-pr.outputs.should_run_next_job }} == true
+    if: ${{ needs.dev-pr.outputs.should_run_next_job }}
     strategy:
       matrix:
         images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}    
@@ -112,7 +112,7 @@ jobs:
   commit-reports:
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
-    if: ${{ needs.dev-pr.outputs.should_run_next_job }} == true
+    if: ${{ needs.dev-pr.outputs.should_run_next_job }} 
     steps:
       - name: Checkout our repository
         uses: actions/checkout@v4
