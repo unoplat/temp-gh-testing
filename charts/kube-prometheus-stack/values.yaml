@@ -231,13 +231,6 @@ windowsMonitoring:
 prometheus-windows-exporter:
   ## Enable ServiceMonitor and set Kubernetes label to use as a job label
   ##
-  image:
-    registry: ghcr.io
-    repository: prometheus-community/windows-exporter
-    # Overrides the image tag whose default is {{ printf "v%s" .Chart.AppVersion }}
-    tag: "0.22.0"
-    pullPolicy: IfNotPresent
-    digest: ""
   prometheus:
     monitor:
       enabled: true
