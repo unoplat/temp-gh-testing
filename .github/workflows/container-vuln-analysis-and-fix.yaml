@@ -1,7 +1,5 @@
 name: Develop Branch Action
 
-# todo: add container vulnerability scan
-
 on:
   pull_request_target:
     types: [opened]
@@ -17,6 +15,7 @@ jobs:
     outputs:
       should_run_next_job: ${{ steps.read_json.outputs.dockerImageScan }}
       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
+      timestamp: ${{ steps.timestamp.outputs.timeStamp }}
 
     steps:
     - name: Checkout our repository
@@ -32,8 +31,7 @@ jobs:
           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
           core.setOutput('config', config);
           core.setOutput('dockerImageScan',config.dockerImageScan)
-    
-        
+          
     - name: Conditional Docker Image Scan
       working-directory: charts
       if: ${{ steps.read_json.outputs.dockerImageScan == 'true'}}
@@ -69,6 +67,20 @@ jobs:
           let keysArray = Object.keys(data);
           core.setOutput('image-matrix', JSON.stringify(keysArray));
 
+    - name: Set timestamp
+      id: timestamp
+      if: ${{ steps.read_json.outputs.dockerImageScan == 'true' }}
+      run: |
+        TIMESTAMP=$(date +'%Y%m%d%H%M')
+        echo "::set-output name=timeStamp::${TIMESTAMP}"
+        mkdir reports/reports/container-security-analysis/${TIMESTAMP}
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git pull origin
+        git add reports/reports/container-security-analysis/${TIMESTAMP}
+        git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP}"
+        git push origin main      
+
   use-container-scan-matrix:
     needs: dev-pr
     runs-on: ubuntu-latest
@@ -87,19 +99,14 @@ jobs:
         run: |
           timestamp=$(date +%Y%m%d%H%M)
           export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
-          echo "::set-output name=timestamp::$timestamp"
           echo "::set-output name=docker_image_name::$IMAGE_NAME"
-      - name: Debug Output Paths
-        run: |
-          echo "Docker Image Name: ${{ steps.createfile.outputs.docker_image_name }}"
-          echo "Timestamp: ${{ steps.createfile.outputs.timestamp }}"
          
       - name: Generate Trivy Report 
         uses: aquasecurity/trivy-action@master
         with: 
           scan-type: 'image' 
           format: 'json' 
-          output: "reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
+          output: "reports/container-security-analysis/${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json" 
           ignore-unfixed: true 
           vuln-type: "os"
           severity: 'CRITICAL,HIGH' 
@@ -108,7 +115,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}
-          path: reports/container-security-analysis/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
+          path: reports/container-security-analysis/${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report-${{ steps.createfile.outputs.timestamp }}.json
   commit-reports:
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
@@ -122,7 +129,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: reports/container-security-analysis/
+          path: reports/container-security-analysis/${{needs.dev-pr.outputs.timestamp}}
 
       - name: Configure Git
         run: |
