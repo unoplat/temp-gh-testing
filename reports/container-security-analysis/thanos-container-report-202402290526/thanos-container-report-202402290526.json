@@ -1,0 +1,105 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2024-02-29T05:26:38.213149005Z",
+  "ArtifactName": "quay.io/thanos/thanos:v0.32.5",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "ImageID": "sha256:b077c1fb02de70b09afc84a17e2d22851d521770f0e35a0bf447a2f8119cd595",
+    "DiffIDs": [
+      "sha256:faf755cf727c09151beb5c1af936cb7ca576c2a6d3b3dfcaaf31a60363922632",
+      "sha256:aaa2c4c90b674114ecee620cfeba00d995bd327a6be790492862d68d3616b5ed",
+      "sha256:d50d8af870e48133672ff33e2f5f65c3c40b6da7c7b29aeefec863ee708a5cd3",
+      "sha256:f16caaaa908e1e5c4558211b41efd74d42f7c54b405d991f5e282bfe0147f83e"
+    ],
+    "RepoTags": [
+      "quay.io/thanos/thanos:v0.32.5"
+    ],
+    "RepoDigests": [
+      "quay.io/thanos/thanos@sha256:3e5c47dd3a0bfc6c595036c1c49c7ca95979a89c1fb93ee4cdee3bf5d296f944"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "container": "392b3a86cbc283f900a752ad6e06d0822cd7b3920399befaaa27045ec57ee1dc",
+      "created": "2023-10-19T04:28:59.306050142Z",
+      "docker_version": "20.10.12-200-c3730b83c1",
+      "history": [
+        {
+          "created": "2023-07-18T23:19:38.848941481Z",
+          "created_by": "/bin/sh -c #(nop) ADD file:bdecc23fd98ba2c277e43b5cea8883ffe7ca263be7ffffec66245881d518a90f in / "
+        },
+        {
+          "created": "2023-07-18T23:19:38.921961003Z",
+          "created_by": "/bin/sh -c #(nop)  CMD [\"sh\"]",
+          "empty_layer": true
+        },
+        {
+          "author": "The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+          "created": "2023-10-15T10:54:44.374193879Z",
+          "created_by": "/bin/sh -c #(nop)  MAINTAINER The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+          "empty_layer": true
+        },
+        {
+          "author": "The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+          "created": "2023-10-15T10:54:44.726236898Z",
+          "created_by": "/bin/sh -c #(nop) COPY dir:c0097f329d18485c38670fc45c2392f2fc33af3c40c222f07eb0e76a0d296ee9 in / "
+        },
+        {
+          "created": "2023-10-19T04:28:57.243517879Z",
+          "created_by": "/bin/sh -c #(nop)  LABEL maintainer=The Thanos Authors",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-10-19T04:28:57.335183745Z",
+          "created_by": "/bin/sh -c #(nop)  ARG ARCH=amd64",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-10-19T04:28:57.421739545Z",
+          "created_by": "/bin/sh -c #(nop)  ARG OS=linux",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-10-19T04:28:57.996445773Z",
+          "created_by": "/bin/sh -c #(nop) COPY file:abbbe251f06b2fbe6b0764788321dda1cb729c995978afbc9528328d5920e276 in /bin/thanos "
+        },
+        {
+          "created": "2023-10-19T04:28:59.053405941Z",
+          "created_by": "|2 ARCH=amd64 OS=linux /bin/sh -c adduser     -D `#Dont assign a password`     -H `#Dont create home directory`     -u 1001 `#User id`    thanos \u0026\u0026     chown thanos /bin/thanos"
+        },
+        {
+          "created": "2023-10-19T04:28:59.221767431Z",
+          "created_by": "/bin/sh -c #(nop)  USER 1001",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-10-19T04:28:59.306050142Z",
+          "created_by": "/bin/sh -c #(nop)  ENTRYPOINT [\"/bin/thanos\"]",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:faf755cf727c09151beb5c1af936cb7ca576c2a6d3b3dfcaaf31a60363922632",
+          "sha256:aaa2c4c90b674114ecee620cfeba00d995bd327a6be790492862d68d3616b5ed",
+          "sha256:d50d8af870e48133672ff33e2f5f65c3c40b6da7c7b29aeefec863ee708a5cd3",
+          "sha256:f16caaaa908e1e5c4558211b41efd74d42f7c54b405d991f5e282bfe0147f83e"
+        ]
+      },
+      "config": {
+        "Entrypoint": [
+          "/bin/thanos"
+        ],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ],
+        "Image": "sha256:231eddf3e70057d5f696b5ea5aeeaff519937deb8b6eabd533364f51a7550bcf",
+        "Labels": {
+          "maintainer": "The Thanos Authors"
+        },
+        "User": "1001"
+      }
+    }
+  }
+}
