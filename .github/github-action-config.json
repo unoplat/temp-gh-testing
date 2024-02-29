@@ -1,5 +1,5 @@
 {
-    "dockerImageScan" : false,
+    "dockerImageScan" : true,
     "repositoryName": "unoplat-observability-prom-stack",
     "upStreamChartRepository": "prometheus-community",
     "upStreamChartRepositoryURL": "https://prometheus-community.github.io/helm-charts",
