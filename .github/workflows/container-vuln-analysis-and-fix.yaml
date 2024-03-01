@@ -40,8 +40,6 @@ jobs:
       run: |
         arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
         os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
-        echo $arch
-        echo $os
         if [ "$arch" = "x64" ]; then
           arch="amd64"
         fi
@@ -75,11 +73,13 @@ jobs:
         echo "::set-output name=timeStamp::${TIMESTAMP}"  
         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
         touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
+        mv docker_images.json docker_images_$TIMESTAMP.json
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git pull origin
         git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-        git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP}"
+        git add charts/docker_images_$TIMESTAMP.json
+        git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP} and json for images"
         git push origin main
 
   use-container-scan-matrix:
@@ -120,6 +120,7 @@ jobs:
           echo "::set-output name=docker_original_image_name::$IMAGE_NAME"
           echo "::set-output name=docker_original_image_tag::$IMAGE_TAG"
 
+
           
       - name: Generate Trivy Report 
         uses: aquasecurity/trivy-action@master
@@ -144,7 +145,7 @@ jobs:
           report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
           vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
           echo "vuln_count=$vuln_count"
-          echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT  
+          echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
                 
       - name: Run Copa action 
         if: steps.vuln_count.outputs.vuln_count != '0' 
@@ -169,8 +170,20 @@ jobs:
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched | cut -d'@' -f 2)
           echo "Digest for ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched is ${DIGEST}"
           # Set output
-          echo "::set-output name=digest::${DIGEST}"          
+          echo "::set-output name=digest::${DIGEST}"
+      - name: Write Modified Image Info if Patched
+        if: steps.vuln_count.outputs.vuln_count != '0'     
+        run: |
+          touch reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
+          IMAGE_MAPPING_JSON="reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json"
+          echo "{\"original_image\": \"${{ matrix.images }}\", \"patched_image\": \"ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched\"}" > $IMAGE_MAPPING_JSON  
 
+      - name: Store Modified Image information if patched through copa
+        if: steps.vuln_count.outputs.vuln_count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info
+          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
       - name: Sign image with a key
         if: steps.vuln_count.outputs.vuln_count != '0'
         run: |
@@ -182,10 +195,6 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
   
-            
-          
-    
-
   commit-reports: 
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
