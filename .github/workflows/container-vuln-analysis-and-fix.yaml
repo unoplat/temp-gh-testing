@@ -73,7 +73,7 @@ jobs:
         echo "::set-output name=timeStamp::${TIMESTAMP}"  
         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
         touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
-        mv docker_images.json docker_images_$TIMESTAMP.json
+        mv charts/docker_images.json charts/docker_images_$TIMESTAMP.json
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git pull origin
