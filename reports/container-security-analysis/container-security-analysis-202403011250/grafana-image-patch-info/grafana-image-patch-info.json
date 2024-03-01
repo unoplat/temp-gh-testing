@@ -1,0 +1,1 @@
+{"original_image": "docker.io/grafana/grafana:10.2.2", "patched_image": "ghcr.io/unoplat/temp-gh-testing/grafana:10.2.2-patched"}
