@@ -172,6 +172,7 @@ jobs:
           echo "::set-output name=digest::${DIGEST}"          
 
       - name: Sign image with a key
+        if: steps.vuln_count.outputs.vuln_count != '0'
         run: |
           images="${TAG}@${DIGEST}"
           cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${images}
@@ -182,14 +183,7 @@ jobs:
           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
   
             
-      - name: Sign the images with GitHub OIDC Token
-        if: steps.vuln_count.outputs.vuln_count != '0' 
-        env:
-          DIGEST: ${{ steps.push_patch_image.outputs.digest }}
-          TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-        run: |
-          images="${TAG}@${DIGEST}"
-          cosign sign --yes ${images}         
+          
     
 
   commit-reports: 
