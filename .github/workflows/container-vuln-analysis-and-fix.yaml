@@ -160,29 +160,14 @@ jobs:
           patched-tag: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
           timeout: 15m
 
-      - name: Docker meta
-        id: docker_meta
-        if: steps.vuln_count.outputs.vuln_count != '0' 
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.docker_image_and_tag.outputs.docker_full_image_name}}
-          tags: |
-            type=semver,pattern={{version}},value=${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-            type=sha,format=long
-
       - name: Push patched image
         id: push_patch_image
         if: steps.vuln_count.outputs.vuln_count != '0'
         run: |
-          # retag if needed
-          IFS=',' read -ra ADDR <<< "${{ steps.docker_meta.outputs.tags }}"
-          for i in "${ADDR[@]}"; do
-            docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}:${i}
-          done
-          docker push ghcr.io/${{ github.repository }}
+          docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+          docker push ghcr.io/${{ github.repository }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_NAME})
           echo "Digest for ${IMAGE_NAME} is ${DIGEST}"
-      
           # Set output
           echo "::set-output name=digest::${DIGEST}"          
 
@@ -191,12 +176,9 @@ jobs:
         if: steps.vuln_count.outputs.vuln_count != '0' 
         env:
           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
-          TAGS: ${{ steps.docker_meta.outputs.tags }}
+          TAG: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
         run: |
-          images=""
-          for tag in ${TAGS}; do
-            images+="${tag}@${DIGEST} "
-          done
+          images="${tag}@${DIGEST} "
           cosign sign --yes ${images}         
     
 
