@@ -178,11 +178,11 @@ jobs:
           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
           TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
         run: |
-          images="${tag}@${DIGEST} "
+          images="${tag}@${DIGEST}"
           cosign sign --yes ${images}         
     
 
-  commit-reports:
+  commit-reports: 
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
     if: ${{ needs.dev-pr.outputs.should_run_next_job == 'true' }} 
