@@ -1,0 +1,82 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2024-03-01T11:58:15.743599089Z",
+  "ArtifactName": "quay.io/prometheus-operator/prometheus-config-reloader:v0.70.0",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "ImageID": "sha256:73ec9f309a82e9938106d4784ff2aa909a41f9e8041197bfc1c373be26ba0840",
+    "DiffIDs": [
+      "sha256:faf755cf727c09151beb5c1af936cb7ca576c2a6d3b3dfcaaf31a60363922632",
+      "sha256:bd055bd657c680112edc5df600a3ca8d057040ca9ae7d89945da8736e0b05d94",
+      "sha256:a455fdf448a8b1be6f0d89974eba4b46f2c03c2954432c129d002c1f0a2b034e"
+    ],
+    "RepoTags": [
+      "quay.io/prometheus-operator/prometheus-config-reloader:v0.70.0"
+    ],
+    "RepoDigests": [
+      "quay.io/prometheus-operator/prometheus-config-reloader@sha256:e20576b76ffd85d2a28d62809092f47b339737320e80646ec6d0e7ac0f4c8e43"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "author": "The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+      "created": "2023-11-30T15:42:52.791462945Z",
+      "history": [
+        {
+          "created": "2023-07-18T23:19:38.848941481Z",
+          "created_by": "/bin/sh -c #(nop) ADD file:bdecc23fd98ba2c277e43b5cea8883ffe7ca263be7ffffec66245881d518a90f in / "
+        },
+        {
+          "created": "2023-07-18T23:19:38.921961003Z",
+          "created_by": "/bin/sh -c #(nop)  CMD [\"sh\"]",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-15T10:54:45.184413559Z",
+          "created_by": "MAINTAINER The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-15T10:54:45.184413559Z",
+          "created_by": "COPY /rootfs / # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2023-11-30T15:42:52.791462945Z",
+          "created_by": "COPY prometheus-config-reloader /bin/prometheus-config-reloader # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2023-11-30T15:42:52.791462945Z",
+          "created_by": "USER nobody",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-30T15:42:52.791462945Z",
+          "created_by": "ENTRYPOINT [\"/bin/prometheus-config-reloader\"]",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:faf755cf727c09151beb5c1af936cb7ca576c2a6d3b3dfcaaf31a60363922632",
+          "sha256:bd055bd657c680112edc5df600a3ca8d057040ca9ae7d89945da8736e0b05d94",
+          "sha256:a455fdf448a8b1be6f0d89974eba4b46f2c03c2954432c129d002c1f0a2b034e"
+        ]
+      },
+      "config": {
+        "Entrypoint": [
+          "/bin/prometheus-config-reloader"
+        ],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ],
+        "User": "nobody"
+      }
+    }
+  }
+}
