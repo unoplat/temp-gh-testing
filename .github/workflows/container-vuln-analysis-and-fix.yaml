@@ -178,7 +178,7 @@ jobs:
           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
           TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
         run: |
-          images="${tag}@${DIGEST}"
+          images="${TAG}@${DIGEST}"
           cosign sign --yes ${images}         
     
 
