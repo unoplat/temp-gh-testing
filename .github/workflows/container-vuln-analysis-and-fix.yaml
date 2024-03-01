@@ -109,20 +109,24 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}          
-
-      - name: Create an empty json file for current scan with current timestamp
-        id: createfile
+          
+      - name: Extract Docker Image and Tag
+        id: docker_image_and_tag
         run: |
-          timestamp=$(date +%Y%m%d%H%M)
           export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
-          echo "::set-output name=docker_image_name::$IMAGE_NAME"
+          export IMAGE_TAG=$(echo ${{ matrix.images }}   | awk -F'/' '{print $NF}' | cut -d ':' -f 2)
+          export IMAGE_FULL_NAME=$(echo ${{ matrix.images }}  | rev | cut -d ':' -f 2- | rev)
+          echo "::set-output name=docker_full_image_name::$IMAGE_FULL_NAME" 
+          echo "::set-output name=docker_original_image_name::$IMAGE_NAME"
+          echo "::set-output name=docker_original_image_tag::$IMAGE_TAG"
 
+          
       - name: Generate Trivy Report 
         uses: aquasecurity/trivy-action@master
         with: 
           scan-type: 'image' 
           format: 'json' 
-          output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json" 
+          output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
           ignore-unfixed: true 
           vuln-type: "os"
           severity: 'CRITICAL,HIGH' 
@@ -131,18 +135,17 @@ jobs:
       - name: Archive Trivy Reports
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.createfile.outputs.docker_image_name }}-container-report
-          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json
+          name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report
+          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
               # check whether there are any OS package vulnerabilities 
       - name: Check vulnerability count 
         id: vuln_count 
         run: | 
-          report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json
+          report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
           vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
           echo "vuln_count=$vuln_count"
           echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT  
-
-                     
+                
       - name: Run Copa action 
         if: steps.vuln_count.outputs.vuln_count != '0' 
         id: copa 
@@ -153,28 +156,41 @@ jobs:
         uses: project-copacetic/copa-action@v1.1.0
         with: 
           image: ${{ matrix.images }} 
-          image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.createfile.outputs.docker_image_name }}-container-report.json" 
-          patched-tag: "patched"
+          image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
+          patched-tag: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
           timeout: 15m
 
-      - name: Extract Image name and tag
+      - name: Docker meta
+        id: docker_meta
         if: steps.vuln_count.outputs.vuln_count != '0' 
-        id: image_name_and_tag
-        run: |
-          ORIGINAL_IMAGE_TAG = $(echo ${{ matrix.images }}  | awk -F':' '{print $2}')
-          IMAGE_NAME=$(echo ${{ steps.copa.outputs.patched-image }} | awk -F':' '{print $1}')
-          IMAGE_TAG=$(echo ${{ steps.copa.outputs.patched-image }} | awk -F':' '{print $2}')
-          CONCATENATED_TAG="${ORIGINAL_IMAGE_TAG}-${IMAGE_TAG}"
-          echo "::set-output name=image_name::$IMAGE_NAME"
-          echo "::set-output name=image_tag::$CONCATENATED_TAG"   
-                   
-      - name: Build and publish Docker image
-        if: steps.vuln_count.outputs.vuln_count != '0' 
-        uses: VaultVulp/gp-docker-action@1.6.0
+        uses: docker/metadata-action@v5
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }} # Provide GITHUB_TOKEN to login into the GitHub Packages
-          image-name: ${{ steps.image_name_and_tag.outputs.image_name }} # Provide Docker image name
-          image-tag: ${{ steps.image_name_and_tag.outputs.image_tag }} # Provide Docker image tag
+          images: ${{ steps.docker_image_and_tag.outputs.docker_full_image_name}}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+            type=sha,format=long
+
+      - name: Build and Push container images
+        uses: docker/build-push-action@v4.0.0
+        if: steps.vuln_count.outputs.vuln_count != '0' 
+        id: build-and-push
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.docker_meta.outputs.tags }}
+            
+      - name: Sign the images with GitHub OIDC Token
+        if: steps.vuln_count.outputs.vuln_count != '0' 
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ${{ steps.docker_meta.outputs.tags }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}         
+    
 
   commit-reports:
     needs: [use-container-scan-matrix,dev-pr]
