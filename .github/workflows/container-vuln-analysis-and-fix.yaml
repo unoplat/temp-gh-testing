@@ -170,19 +170,27 @@ jobs:
             type=semver,pattern={{version}},value=${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
             type=sha,format=long
 
-      - name: Build and Push container images
-        uses: docker/build-push-action@v4.0.0
-        if: steps.vuln_count.outputs.vuln_count != '0' 
-        id: build-and-push
-        with:
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.docker_image_and_tag.outputs.docker_full_image_name}}:${{ steps.docker_meta.outputs.tags }}
+      - name: Push patched image
+        id: push_patch_image
+        if: steps.vuln_count.outputs.vuln_count != '0'
+        run: |
+          # retag if needed
+          IFS=',' read -ra ADDR <<< "${{ steps.docker_meta.outputs.tags }}"
+          for i in "${ADDR[@]}"; do
+            docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}:${i}
+          done
+          docker push ghcr.io/${{ github.repository }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_NAME})
+          echo "Digest for ${IMAGE_NAME} is ${DIGEST}"
+      
+          # Set output
+          echo "::set-output name=digest::${DIGEST}"          
+
             
       - name: Sign the images with GitHub OIDC Token
         if: steps.vuln_count.outputs.vuln_count != '0' 
         env:
-          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          DIGEST: ${{ steps.push_patch_image.outputs.digest }}
           TAGS: ${{ steps.docker_meta.outputs.tags }}
         run: |
           images=""
