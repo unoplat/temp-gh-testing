@@ -199,10 +199,15 @@ jobs:
         with:
           ref: main
 
+      - name: Setup Snap          
+        run: |
+          snap install yq
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
+
       - name: Find Patched Images and Update Helm if required.
         run: |
           for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
@@ -213,7 +218,8 @@ jobs:
               patched_image=$(jq -r '.patched_image' $json_file)
               echo "Original Image: $original_image"
               echo "Patched Image: $patched_image"
-              # Add your processing commands here
+              
+              
             done
           done
 
