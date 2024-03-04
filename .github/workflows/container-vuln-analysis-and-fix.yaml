@@ -226,7 +226,7 @@ jobs:
               # Read helm paths from charts/docker_images.json
               helm_paths=$(jq -r --arg key "$original_image" '.[$key]' charts/docker_images_${{needs.dev-pr.outputs.timestamp}}.json)
               echo "Helm Paths: $helm_paths"
-              YAML_FILE = charts/${{needs.dev-pr.outputs.chartName}}/values.yaml
+              YAML_FILE="charts/${{needs.dev-pr.outputs.chartName}}/values.yaml"
               for helm_path in $helm_paths; do
                 IFS='.' #Internal Field Separator for Bash, treating '.' as delimiter
                 read -ra ADDR <<< "$helm_path"
