@@ -150,7 +150,7 @@ jobs:
         # use a tag (such as v1 or v1.0.1) at a bare minimum 
         # recommendation is to pin to a digest for security and stability 
         # and rely on dependabot for digest/version updates 
-        uses: project-copacetic/copa-action@v1.1.0
+        uses: project-copacetic/copa-action@v1.2.1
         with: 
           image: ${{ matrix.images }} 
           image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
