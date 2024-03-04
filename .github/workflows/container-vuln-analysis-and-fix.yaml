@@ -15,6 +15,7 @@ jobs:
     outputs:
       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
       timestamp: ${{ steps.timestamp.outputs.timeStamp }}
+      chartName: ${{ steps.read_json.outputs.upStreamChartName }}
 
     steps:
     - name: Checkout our repository
@@ -29,7 +30,7 @@ jobs:
           const fs = require('fs');
           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
           core.setOutput('config', config);
-          core.setOutput('dockerImageScan',config.dockerImageScan)
+          core.setOutput('upStreamChartName',config.upStreamChartName)
           
     - name: Conditional Docker Image Scan
       working-directory: charts
@@ -208,20 +209,24 @@ jobs:
         with:
           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
 
-      - name: Find Patched Images and Update Helm if required.
-        run: |
-          for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
-            echo "Processing directory $dir"
-            for json_file in $(find $dir -name "*-image-patch-info.json"); do
-              echo "Processing JSON file $json_file"
-              original_image=$(jq -r '.original_image' $json_file)
-              patched_image=$(jq -r '.patched_image' $json_file)
-              echo "Original Image: $original_image"
-              echo "Patched Image: $patched_image"
-              
-              
-            done
-          done
+      # - name: Find Patched Images and Update Helm if required.
+      #   run: |
+      #     for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
+      #       echo "Processing directory $dir"
+      #       for json_file in $(find $dir -name "*-image-patch-info.json"); do
+      #         echo "Processing JSON file $json_file"
+      #         original_image=$(jq -r '.original_image' $json_file)
+      #         patched_image=$(jq -r '.patched_image' $json_file)
+      #         echo "Original Image: $original_image"
+      #         echo "Patched Image: $patched_image"
+      #         # Read helm paths from charts/docker_images.json
+      #         helm_paths=$(jq -r --arg key "$original_image" '.[$key]' charts/docker_images_${{needs.dev-pr.outputs.timestamp}}.json)
+      #         echo "Helm Paths: $helm_paths"
+      #         for helm_path in $helm_paths; do
+      #           yq -i '.foo.bar = "cool"' 'charts/${{needs.dev-pr.outputs.chartName}}/values.yaml'
+      #         done
+      #       done
+      #     done
 
       - name: Configure Git
         run: |
