@@ -244,9 +244,10 @@ jobs:
                 repository="${REPO[0]}"
                 tag="${REPO[1]}"
         
-                yq -i "$registryPath = $registry" $YAML_FILE
-                yq -i "$repoPath = $repository" $YAML_FILE
-                yq -i "$tagPath = $tag" $YAML_FILE
+                yq -i "${registryPath}=\"${registry}\"" $YAML_FILE
+                yq -i "${repoPath}=\"${repository}\"" $YAML_FILE
+                yq -i "${tagPath}=\"${tag}\"" $YAML_FILE
+
               done
             done
           done
