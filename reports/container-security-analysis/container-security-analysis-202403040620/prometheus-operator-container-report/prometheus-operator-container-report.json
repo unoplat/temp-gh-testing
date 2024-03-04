@@ -1,0 +1,94 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2024-03-04T06:20:54.391420688Z",
+  "ArtifactName": "quay.io/prometheus-operator/prometheus-operator:v0.70.0",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "ImageID": "sha256:642f6d2ac4c18182afcf0fd795b4ad0e3c18d9438382d1bb6094ddb2ac6c49b6",
+    "DiffIDs": [
+      "sha256:faf755cf727c09151beb5c1af936cb7ca576c2a6d3b3dfcaaf31a60363922632",
+      "sha256:bd055bd657c680112edc5df600a3ca8d057040ca9ae7d89945da8736e0b05d94",
+      "sha256:90323bd2248892d9728e1a8329da52ed6b1511ba0d8a5cb1f00e5d6cf2793b9f"
+    ],
+    "RepoTags": [
+      "quay.io/prometheus-operator/prometheus-operator:v0.70.0"
+    ],
+    "RepoDigests": [
+      "quay.io/prometheus-operator/prometheus-operator@sha256:5ce078d4cd5d0b39bbb2d323a7902eb05680276e25a041115db9128f61b451c8"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "author": "The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+      "created": "2023-11-30T15:42:48.444023646Z",
+      "history": [
+        {
+          "created": "2023-07-18T23:19:38.848941481Z",
+          "created_by": "/bin/sh -c #(nop) ADD file:bdecc23fd98ba2c277e43b5cea8883ffe7ca263be7ffffec66245881d518a90f in / "
+        },
+        {
+          "created": "2023-07-18T23:19:38.921961003Z",
+          "created_by": "/bin/sh -c #(nop)  CMD [\"sh\"]",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-15T10:54:45.184413559Z",
+          "created_by": "MAINTAINER The Prometheus Authors \u003cprometheus-developers@googlegroups.com\u003e",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-15T10:54:45.184413559Z",
+          "created_by": "COPY /rootfs / # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2023-11-30T15:42:48.444023646Z",
+          "created_by": "COPY operator /bin/operator # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2023-11-30T15:42:48.444023646Z",
+          "created_by": "USER 65534",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-30T15:42:48.444023646Z",
+          "created_by": "LABEL org.opencontainers.image.source=https://github.com/prometheus-operator/prometheus-operator org.opencontainers.image.url=https://prometheus-operator.dev/ org.opencontainers.image.documentation=https://prometheus-operator.dev/ org.opencontainers.image.licenses=Apache-2.0",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2023-11-30T15:42:48.444023646Z",
+          "created_by": "ENTRYPOINT [\"/bin/operator\"]",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:faf755cf727c09151beb5c1af936cb7ca576c2a6d3b3dfcaaf31a60363922632",
+          "sha256:bd055bd657c680112edc5df600a3ca8d057040ca9ae7d89945da8736e0b05d94",
+          "sha256:90323bd2248892d9728e1a8329da52ed6b1511ba0d8a5cb1f00e5d6cf2793b9f"
+        ]
+      },
+      "config": {
+        "Entrypoint": [
+          "/bin/operator"
+        ],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ],
+        "Labels": {
+          "org.opencontainers.image.documentation": "https://prometheus-operator.dev/",
+          "org.opencontainers.image.licenses": "Apache-2.0",
+          "org.opencontainers.image.source": "https://github.com/prometheus-operator/prometheus-operator",
+          "org.opencontainers.image.url": "https://prometheus-operator.dev/"
+        },
+        "User": "65534"
+      }
+    }
+  }
+}
