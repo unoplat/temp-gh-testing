@@ -207,6 +207,21 @@ jobs:
         with:
           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
 
+      - name: Find Patched Images and Update Helm if required.
+        run: |
+          for dir in $(find /reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
+            echo "Processing directory $dir"
+            for json_file in $(find $dir -name "*-image-patch-info.json"); do
+              echo "Processing JSON file $json_file"
+              original_image=$(jq -r '.original_image' $json_file)
+              patched_image=$(jq -r '.patched_image' $json_file)
+              echo "Original Image: $original_image"
+              echo "Patched Image: $patched_image"
+              # Add your processing commands here
+            done
+    # Add your processing commands here
+          done
+
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Action"
