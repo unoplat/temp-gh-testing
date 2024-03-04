@@ -13,7 +13,6 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     outputs:
-      should_run_next_job: ${{ steps.read_json.outputs.dockerImageScan }}
       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
       timestamp: ${{ steps.timestamp.outputs.timeStamp }}
 
@@ -194,7 +193,6 @@ jobs:
   commit-reports: 
     needs: [use-container-scan-matrix,dev-pr]
     runs-on: ubuntu-latest
-    if: ${{ needs.dev-pr.outputs.should_run_next_job == 'true' }} 
     steps:
       - name: Checkout our repository
         uses: actions/checkout@v4
