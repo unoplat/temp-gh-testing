@@ -65,7 +65,6 @@ jobs:
 # use this file later for summarising container security reports
     - name: Set timestamp
       id: timestamp
-      if: ${{ steps.read_json.outputs.dockerImageScan == 'true' }}
       run: |
         TIMESTAMP=$(date +'%Y%m%d%H%M')
         echo "::set-output name=timeStamp::${TIMESTAMP}"  
