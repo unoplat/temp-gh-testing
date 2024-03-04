@@ -34,7 +34,6 @@ jobs:
           
     - name: Conditional Docker Image Scan
       working-directory: charts
-      if: ${{ steps.read_json.outputs.dockerImageScan == 'true'}}
       env:
         HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
       run: |
@@ -57,7 +56,6 @@ jobs:
     - name: Generate Matrix
       id: set-image-matrix
       uses: actions/github-script@v5
-      if: ${{ steps.read_json.outputs.dockerImageScan == 'true' }}
       with:
         script: |
           const fs = require('fs');
@@ -85,7 +83,6 @@ jobs:
   use-container-scan-matrix:
     needs: dev-pr
     runs-on: ubuntu-latest
-    if: ${{ needs.dev-pr.outputs.should_run_next_job == 'true' }}
     strategy:
       matrix:
         images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}    
