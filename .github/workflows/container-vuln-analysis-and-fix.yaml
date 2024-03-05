@@ -217,7 +217,9 @@ jobs:
         run: |
           for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
           echo "Processing directory $dir"
+          count=0
             for json_file in $(find $dir -name "*-image-patch-info.json"); do
+              ((count++))
               echo "Processing JSON file $json_file"
               original_image=$(jq -r '.original_image' $json_file)
               patched_image=$(jq -r '.patched_image' $json_file)
@@ -254,6 +256,20 @@ jobs:
 
                done
             done
+            YAML_CHART="charts/kube-prometheus-stack/Chart.yaml"
+
+            if [ $count -ne 0 ]; then
+              old_version=$(yq -r '.version' $YAML_CHART)
+              IFS='-' read -ra VERSION_SUFFIX <<< "$old_version"
+              IFS='.' read -ra VERSION <<< "${VERSION_SUFFIX[0]}"
+              VERSION[2]=$((${VERSION[2]} + $count))
+              if [ -n "${VERSION_SUFFIX[1]}" ]; then
+                new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}-${VERSION_SUFFIX[1]}"
+              else
+                new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}"
+              fi
+              yq -i ".version=\"$new_version\"" $YAML_CHART
+            fi
           done
       
       
