@@ -212,46 +212,51 @@ jobs:
         with:
           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
 
-      # - name: Find Patched Images and Update Helm if required.
-      #   if: ${{needs.use-container-scan-matrix.outputs.vulnerability_count}}!= '0'
-      #   run: |
-      #     for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
-      #       echo "Processing directory $dir"
-      #       for json_file in $(find $dir -name "*-image-patch-info.json"); do
-      #         echo "Processing JSON file $json_file"
-      #         original_image=$(jq -r '.original_image' $json_file)
-      #         patched_image=$(jq -r '.patched_image' $json_file)
-      #         echo "Original Image: $original_image"
-      #         echo "Patched Image: $patched_image"
-      #         # Read helm paths from charts/docker_images.json
-      #         helm_paths=$(jq -r --arg key "$original_image" '.[$key]' charts/docker_images_${{needs.dev-pr.outputs.timestamp}}.json)
-      #         echo "Helm Paths: $helm_paths"
-      #         YAML_FILE="charts/${{needs.dev-pr.outputs.chartName}}/values.yaml"
-      #         for helm_path in $helm_paths; do
-      #           IFS='.' #Internal Field Separator for Bash, treating '.' as delimiter
-      #           read -ra ADDR <<< "$helm_path"
-      #           registryPath=".${ADDR[0]}.${ADDR[1]}.registry"
-      #           repoPath=".${ADDR[0]}.${ADDR[1]}.repository"
-      #           tagPath=".${ADDR[0]}.${ADDR[1]}.tag"
+      - name: Find Patched Images and Update Helm if required.
+        if: ${{needs.use-container-scan-matrix.outputs.vulnerability_count}}!= '0'
+        run: |
+          for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
+          echo "Processing directory $dir"
+            for json_file in $(find $dir -name "*-image-patch-info.json"); do
+              echo "Processing JSON file $json_file"
+              original_image=$(jq -r '.original_image' $json_file)
+              patched_image=$(jq -r '.patched_image' $json_file)
+              echo "Original Image: $original_image"
+              echo "Patched Image: $patched_image"
+              # Read helm paths from charts/docker_images.json
+              helm_paths=$(jq -r --arg key "$original_image" '.[$key][]' charts/docker_images_${{needs.dev-pr.outputs.timestamp}}.json)
+              
+              YAML_FILE="charts/${{needs.dev-pr.outputs.chartName}}/values.yaml"
+              for helm_path in $helm_paths; do
+                echo "helm path: $helm_path"
+                IFS='.' #Internal Field Separator for Bash, treating '.' as delimiter
+                read -ra ADDR <<< "$helm_path"
+                registryPath=".${ADDR[0]}.${ADDR[1]}.registry"
+                repoPath=".${ADDR[0]}.${ADDR[1]}.repository"
+                tagPath=".${ADDR[0]}.${ADDR[1]}.tag"
+                echo $registryPath
+                echo $repoPath
+                echo $tagPath
+                registry=${patched_image%%/*} # get the part before the first /
+                repository_and_tag=${patched_image#*/} # get the part after the first /
                 
-      #           IFS='/' #Now treating '/' as delimiter
-      #           read -ra PARTS <<< "$patched_image"
-      #           registry="${PARTS[0]}"
-      #           repository_and_tag="${PARTS[1]}"
+                IFS=':' #Now treating ':' as delimiter
+                read -ra REPO <<< "$repository_and_tag"
+                repository="${REPO[0]}"
+                tag="${REPO[1]}"
+                echo $registry
+                echo $repository
+                echo $tag
                 
-      #           IFS=':' #Now treating ':' as delimiter
-      #           read -ra REPO <<< "$repository_and_tag"
-      #           repository="${REPO[0]}"
-      #           tag="${REPO[1]}"
-        
-      #           yq -i "${registryPath}=\"${registry}\"" $YAML_FILE
-      #           yq -i "${repoPath}=\"${repository}\"" $YAML_FILE
-      #           yq -i "${tagPath}=\"${tag}\"" $YAML_FILE
+                yq -i "${registryPath}=\"${registry}\"" $YAML_FILE
+                yq -i "${repoPath}=\"${repository}\"" $YAML_FILE
+                yq -i "${tagPath}=\"${tag}\"" $YAML_FILE
 
-      #         done
-      #       done
-      #     done
-
+               done
+            done
+          done
+      
+      
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Action"
