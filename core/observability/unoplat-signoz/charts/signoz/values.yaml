@@ -2776,7 +2776,7 @@ k8s-infra:
     # @default -- See `values.yaml` for defaults
     resources:
       requests:
-        cpu: 100m
+        cpu: 200m
         memory: 100Mi
       # limits:
       #   cpu: 1000m
