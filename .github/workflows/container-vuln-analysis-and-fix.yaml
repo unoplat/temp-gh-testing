@@ -13,7 +13,7 @@ jobs:
   prepare-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.prepare-matrix.outputs.matrix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,76 +42,84 @@ jobs:
           echo "::set-output name=matrix::$JSON_STRING"
         
   
-#   dev-pr:
-#     permissions:
-#       contents: write
-#     runs-on: ubuntu-latest
-#     outputs:
-#       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
-#       timestamp: ${{ steps.timestamp.outputs.timeStamp }}
-#       chartName: ${{ steps.read_json.outputs.upStreamChartName }}
+  dev-pr:
+    needs: prepare-matrix
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{fromJson(needs.prepare-matrix.outputs.matrix)}}
+    outputs:
+      current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
+      timestamp: ${{ steps.timestamp.outputs.timeStamp }}
+      chartName: ${{ steps.read_json.outputs.upStreamChartName }}
+         
+    steps:
+    - name: Checkout our repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+    - name: Read JSON Config
+      id: read_json
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const appPath = '${{ matrix.app }}';
+          const appName = appPath.split('/').pop(); // Extracts the last segment of the path
+          const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
+          const appConfig = config[appName]; // Access the app-specific configuration
+          core.setOutput('config', appConfig);
+          core.setOutput('upStreamChartName', appConfig.upStreamChartName);
+          
+    - name: Docker Image Scan
+      working-directory: '${{ matrix.app }}/charts'
+      env:
+        HELM_VALUES_FILE_PATH: ${{ steps.read_json.outputs.upStreamChartName }}/values.yaml
+      run: |
+        arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
+        os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
+        if [ "$arch" = "x64" ]; then
+          arch="amd64"
+        fi
+        LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-utilities/releases/latest | jq -r '.tag_name' | xargs)
+        echo "Latest release info: $LATEST_RELEASE"
+        wget https://github.com/unoplat/unoplat-utilities/releases/download/$LATEST_RELEASE/$LATEST_RELEASE-$os-$arch.tar.gz
+        tar -xzf $LATEST_RELEASE-$os-$arch.tar.gz
 
-#     steps:
-#     - name: Checkout our repository
-#       uses: actions/checkout@v4
-#       with:
-#         ref: main
-#     - name: Read JSON Config
-#       id: read_json
-#       uses: actions/github-script@v5
-#       with:
-#         script: |
-#           const fs = require('fs');
-#           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
-#           core.setOutput('config', config);
-#           core.setOutput('upStreamChartName',config.upStreamChartName)
+        if [ -f docker_images.json ]; then
+          rm docker_images.json
+        fi
+        ./image-scan
+        rm image-scan
+        rm image-scan*.tar.gz
           
-#     - name: Conditional Docker Image Scan
-#       working-directory: charts
-#       env:
-#         HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
-#       run: |
-#         arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
-#         os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
-#         if [ "$arch" = "x64" ]; then
-#           arch="amd64"
-#         fi
-#         LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-ci-cd-scripts/releases/latest | jq -r '.tag_name' | xargs)
-#         echo "Latest release info: $LATEST_RELEASE"
-#         wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/$LATEST_RELEASE/image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
-#         tar -xzf image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
-#         if [ -f docker_images.json ]; then
-#           rm docker_images.json
-#         fi
-#         ./image-scan
-#         rm image-scan
-#         rm image-scan*.tar.gz
-          
-#     - name: Generate Matrix
-#       id: set-image-matrix
-#       uses: actions/github-script@v5
-#       with:
-#         script: |
-#           const fs = require('fs');
-#           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
-#           let keysArray = Object.keys(data);
-#           core.setOutput('image-matrix', JSON.stringify(keysArray));
-# # use this file later for summarising container security reports
-#     - name: Set timestamp
-#       id: timestamp
-#       run: |
-#         TIMESTAMP=$(date +'%Y%m%d%H%M')
-#         echo "::set-output name=timeStamp::${TIMESTAMP}"  
-#         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-#         touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
-#         mv charts/docker_images.json charts/docker_images_$TIMESTAMP.json
-#         git config --local user.email "action@github.com"
-#         git config --local user.name "GitHub Action"
-#         git pull origin
-#         git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-#         git add charts/docker_images_$TIMESTAMP.json
-#         git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP} and json for images"
-#         git push origin main
+    - name: Generate Matrix
+      id: set-image-matrix
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('${{ matrix.app }}/charts/docker_images.json', 'utf8'));
+          let keysArray = Object.keys(data);
+          core.setOutput('image-matrix', JSON.stringify(keysArray));
+# use this file later for summarising container security reports
+    - name: Set timestamp
+      id: timestamp
+      working-directory: '${{ matrix.app }}'
+      run: |
+        TIMESTAMP=$(date +'%Y%m%d%H%M')
+        echo "::set-output name=timeStamp::${TIMESTAMP}"  
+        mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
+        touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
+        mv charts/docker_images.json charts/docker_images_$TIMESTAMP.json
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git pull origin
+        git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
+        git add charts/docker_images_$TIMESTAMP.json
+        git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP} and json for images"
+        git push origin main
 
 #   use-container-scan-matrix:
 #     needs: dev-pr
