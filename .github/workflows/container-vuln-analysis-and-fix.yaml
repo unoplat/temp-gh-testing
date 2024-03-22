@@ -5,287 +5,314 @@ on:
     types: [opened]
     branches:
       - develop
+    paths:
+      - 'core/**'
   workflow_dispatch:
 
 jobs:
-  dev-pr:
-    permissions:
-      contents: write
+  prepare-matrix:
     runs-on: ubuntu-latest
     outputs:
-      current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
-      timestamp: ${{ steps.timestamp.outputs.timeStamp }}
-      chartName: ${{ steps.read_json.outputs.upStreamChartName }}
-
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-    - name: Checkout our repository
-      uses: actions/checkout@v4
-      with:
-        ref: main
-    - name: Read JSON Config
-      id: read_json
-      uses: actions/github-script@v5
-      with:
-        script: |
-          const fs = require('fs');
-          const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
-          core.setOutput('config', config);
-          core.setOutput('upStreamChartName',config.upStreamChartName)
-          
-    - name: Conditional Docker Image Scan
-      working-directory: charts
-      env:
-        HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
-      run: |
-        arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
-        os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
-        if [ "$arch" = "x64" ]; then
-          arch="amd64"
-        fi
-        LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-ci-cd-scripts/releases/latest | jq -r '.tag_name' | xargs)
-        echo "Latest release info: $LATEST_RELEASE"
-        wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/$LATEST_RELEASE/image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
-        tar -xzf image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
-        if [ -f docker_images.json ]; then
-          rm docker_images.json
-        fi
-        ./image-scan
-        rm image-scan
-        rm image-scan*.tar.gz
-          
-    - name: Generate Matrix
-      id: set-image-matrix
-      uses: actions/github-script@v5
-      with:
-        script: |
-          const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
-          let keysArray = Object.keys(data);
-          core.setOutput('image-matrix', JSON.stringify(keysArray));
-# use this file later for summarising container security reports
-    - name: Set timestamp
-      id: timestamp
-      run: |
-        TIMESTAMP=$(date +'%Y%m%d%H%M')
-        echo "::set-output name=timeStamp::${TIMESTAMP}"  
-        mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-        touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
-        mv charts/docker_images.json charts/docker_images_$TIMESTAMP.json
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git pull origin
-        git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-        git add charts/docker_images_$TIMESTAMP.json
-        git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP} and json for images"
-        git push origin main
-
-  use-container-scan-matrix:
-    needs: dev-pr
-    runs-on: ubuntu-latest
-    outputs:
-      vulnerability_count: ${{ steps.vuln_count.outputs.vuln_count }}
-    strategy:
-      matrix:
-        images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
-        
-    steps:
-      - name: Checkout our repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: main
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.4.0
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2.1.0
+      - name: Install jq (JSON Processor)
+        run: sudo apt-get install jq
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.1.0
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}          
-          
-      - name: Extract Docker Image and Tag
-        id: docker_image_and_tag
+      - name: Set Matrix for Changed Charts
+        id: set-matrix
         run: |
-          export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
-          export IMAGE_TAG=$(echo ${{ matrix.images }}   | awk -F'/' '{print $NF}' | cut -d ':' -f 2)
-          export IMAGE_FULL_NAME=$(echo ${{ matrix.images }}  | rev | cut -d ':' -f 2- | rev)
-          echo "::set-output name=docker_full_image_name::$IMAGE_FULL_NAME" 
-          echo "::set-output name=docker_original_image_name::$IMAGE_NAME"
-          echo "::set-output name=docker_original_image_tag::$IMAGE_TAG"
-
-
-          
-      - name: Generate Trivy Report 
-        uses: aquasecurity/trivy-action@master
-        with: 
-          scan-type: 'image' 
-          format: 'json' 
-          output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
-          ignore-unfixed: true 
-          vuln-type: "os"
-          severity: 'CRITICAL,HIGH' 
-          image-ref: ${{ matrix.images }} 
-          
-      - name: Archive Trivy Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report
-          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
-              # check whether there are any OS package vulnerabilities 
-      - name: Check vulnerability count 
-        id: vuln_count 
-        run: | 
-          report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
-          vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
-          echo "vuln_count=$vuln_count"
-          echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
-                
-      - name: Run Copa action 
-        if: steps.vuln_count.outputs.vuln_count != '0' 
-        id: copa 
-        # using main for testing purposes 
-        # use a tag (such as v1 or v1.0.1) at a bare minimum 
-        # recommendation is to pin to a digest for security and stability 
-        # and rely on dependabot for digest/version updates 
-        uses: project-copacetic/copa-action@v1.2.1
-        with: 
-          image: ${{ matrix.images }} 
-          image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
-          patched-tag: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-          timeout: 15m
-
-      - name: Push patched image
-        id: push_patch_image
-        if: steps.vuln_count.outputs.vuln_count != '0'
-        run: |
-          docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-          docker push ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched | cut -d'@' -f 2)
-          echo "Digest for ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched is ${DIGEST}"
-          # Set output
-          echo "::set-output name=digest::${DIGEST}"
-      - name: Write Modified Image Info if Patched
-        if: steps.vuln_count.outputs.vuln_count != '0'     
-        run: |
-          touch reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
-          IMAGE_MAPPING_JSON="reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json"
-          echo "{\"original_image\": \"${{ matrix.images }}\", \"patched_image\": \"ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched\"}" > $IMAGE_MAPPING_JSON  
-
-      - name: Store Modified Image information if patched through copa
-        if: steps.vuln_count.outputs.vuln_count != '0'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info
-          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
-      - name: Sign image with a key
-        if: steps.vuln_count.outputs.vuln_count != '0'
-        run: |
-          images="${TAG}@${DIGEST}"
-          cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${images}
-        env:
-          TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-          DIGEST: ${{ steps.push_patch_image.outputs.digest }}
-  
-  commit-reports: 
-    needs: [use-container-scan-matrix,dev-pr]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout our repository
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Setup Snap          
-        run: |
-          sudo snap install yq
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
-
-      - name: Find Patched Images and Update Helm if required.
-        if: ${{needs.use-container-scan-matrix.outputs.vulnerability_count}}!= '0'
-        run: |
-          for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
-          echo "Processing directory $dir"
-          count=0
-            for json_file in $(find $dir -name "*-image-patch-info.json"); do
-              ((count++))
-              echo "Processing JSON file $json_file"
-              original_image=$(jq -r '.original_image' $json_file)
-              patched_image=$(jq -r '.patched_image' $json_file)
-              echo "Original Image: $original_image"
-              echo "Patched Image: $patched_image"
-              # Read helm paths from charts/docker_images.json
-              helm_paths=$(jq -r --arg key "$original_image" '.[$key][]' charts/docker_images_${{needs.dev-pr.outputs.timestamp}}.json)
-              
-              YAML_FILE="charts/${{needs.dev-pr.outputs.chartName}}/values.yaml"
-              for helm_path in $helm_paths; do
-                echo "helm path: $helm_path"
-                IFS='.' #Internal Field Separator for Bash, treating '.' as delimiter
-                read -ra ADDR <<< "$helm_path"
-                registryPath=".${ADDR[0]}.${ADDR[1]}.registry"
-                repoPath=".${ADDR[0]}.${ADDR[1]}.repository"
-                tagPath=".${ADDR[0]}.${ADDR[1]}.tag"
-                echo $registryPath
-                echo $repoPath
-                echo $tagPath
-                registry=${patched_image%%/*} # get the part before the first /
-                repository_and_tag=${patched_image#*/} # get the part after the first /
-                
-                IFS=':' #Now treating ':' as delimiter
-                read -ra REPO <<< "$repository_and_tag"
-                repository="${REPO[0]}"
-                tag="${REPO[1]}"
-                echo $registry
-                echo $repository
-                echo $tag
-                
-                yq -i "${registryPath}=\"${registry}\"" $YAML_FILE
-                yq -i "${repoPath}=\"${repository}\"" $YAML_FILE
-                yq -i "${tagPath}=\"${tag}\"" $YAML_FILE
-
-               done
-            done
-            YAML_CHART="charts/kube-prometheus-stack/Chart.yaml"
-
-            if [ $count -ne 0 ]; then
-              old_version=$(yq -r '.version' $YAML_CHART)
-              IFS='-' read -ra VERSION_SUFFIX <<< "$old_version"
-              IFS='.' read -ra VERSION <<< "${VERSION_SUFFIX[0]}"
-              VERSION[2]=$((${VERSION[2]} + $count))
-              if [ -n "${VERSION_SUFFIX[1]}" ]; then
-                new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}-${VERSION_SUFFIX[1]}"
-              else
-                new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}"
-              fi
-              yq -i ".version=\"$new_version\"" $YAML_CHART
+          JSON_STRING='{"include":[]}'
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'core/' | awk -F"/" '{print $1"/"$2"/"$3}' | uniq)
+          for FILE in $CHANGED_FILES; do
+            if [ -d "$FILE" ]; then
+              JSON_STRING=$(echo $JSON_STRING | jq --arg app "$FILE" '.include += [{"app":$app}]')
             fi
           done
-      
-      
-      - name: Configure Git
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
+          echo "Matrix: $JSON_STRING"
+          echo "::set-output name=matrix::$JSON_STRING"
+        
+  
+#   dev-pr:
+#     permissions:
+#       contents: write
+#     runs-on: ubuntu-latest
+#     outputs:
+#       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
+#       timestamp: ${{ steps.timestamp.outputs.timeStamp }}
+#       chartName: ${{ steps.read_json.outputs.upStreamChartName }}
 
-      - name: Commit and Push Changes
-        run: |
-          if git status --porcelain; then
-            git pull origin main
-            git add reports/*
-            git add charts/*
-            git commit -m "Add scan results"
-            git push origin main
-          else
-            echo "No changes to commit."
-          fi
+#     steps:
+#     - name: Checkout our repository
+#       uses: actions/checkout@v4
+#       with:
+#         ref: main
+#     - name: Read JSON Config
+#       id: read_json
+#       uses: actions/github-script@v5
+#       with:
+#         script: |
+#           const fs = require('fs');
+#           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
+#           core.setOutput('config', config);
+#           core.setOutput('upStreamChartName',config.upStreamChartName)
+          
+#     - name: Conditional Docker Image Scan
+#       working-directory: charts
+#       env:
+#         HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
+#       run: |
+#         arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
+#         os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
+#         if [ "$arch" = "x64" ]; then
+#           arch="amd64"
+#         fi
+#         LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-ci-cd-scripts/releases/latest | jq -r '.tag_name' | xargs)
+#         echo "Latest release info: $LATEST_RELEASE"
+#         wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/$LATEST_RELEASE/image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
+#         tar -xzf image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
+#         if [ -f docker_images.json ]; then
+#           rm docker_images.json
+#         fi
+#         ./image-scan
+#         rm image-scan
+#         rm image-scan*.tar.gz
+          
+#     - name: Generate Matrix
+#       id: set-image-matrix
+#       uses: actions/github-script@v5
+#       with:
+#         script: |
+#           const fs = require('fs');
+#           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
+#           let keysArray = Object.keys(data);
+#           core.setOutput('image-matrix', JSON.stringify(keysArray));
+# # use this file later for summarising container security reports
+#     - name: Set timestamp
+#       id: timestamp
+#       run: |
+#         TIMESTAMP=$(date +'%Y%m%d%H%M')
+#         echo "::set-output name=timeStamp::${TIMESTAMP}"  
+#         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
+#         touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
+#         mv charts/docker_images.json charts/docker_images_$TIMESTAMP.json
+#         git config --local user.email "action@github.com"
+#         git config --local user.name "GitHub Action"
+#         git pull origin
+#         git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
+#         git add charts/docker_images_$TIMESTAMP.json
+#         git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP} and json for images"
+#         git push origin main
+
+#   use-container-scan-matrix:
+#     needs: dev-pr
+#     runs-on: ubuntu-latest
+#     outputs:
+#       vulnerability_count: ${{ steps.vuln_count.outputs.vuln_count }}
+#     strategy:
+#       matrix:
+#         images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
+        
+#     steps:
+#       - name: Checkout our repository
+#         uses: actions/checkout@v4
+#         with:
+#           ref: main
+#       - name: Install Cosign
+#         uses: sigstore/cosign-installer@v3.4.0
+
+#       - name: Set up QEMU
+#         uses: docker/setup-qemu-action@v2.1.0
+
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3.1.0
+
+#       - name: Login to GitHub Container Registry
+#         uses: docker/login-action@v2.1.0
+#         with:
+#           registry: ghcr.io
+#           username: ${{ github.actor }}
+#           password: ${{ secrets.GITHUB_TOKEN }}          
+          
+#       - name: Extract Docker Image and Tag
+#         id: docker_image_and_tag
+#         run: |
+#           export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
+#           export IMAGE_TAG=$(echo ${{ matrix.images }}   | awk -F'/' '{print $NF}' | cut -d ':' -f 2)
+#           export IMAGE_FULL_NAME=$(echo ${{ matrix.images }}  | rev | cut -d ':' -f 2- | rev)
+#           echo "::set-output name=docker_full_image_name::$IMAGE_FULL_NAME" 
+#           echo "::set-output name=docker_original_image_name::$IMAGE_NAME"
+#           echo "::set-output name=docker_original_image_tag::$IMAGE_TAG"
+
+
+          
+#       - name: Generate Trivy Report 
+#         uses: aquasecurity/trivy-action@master
+#         with: 
+#           scan-type: 'image' 
+#           format: 'json' 
+#           output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
+#           ignore-unfixed: true 
+#           vuln-type: "os"
+#           severity: 'CRITICAL,HIGH' 
+#           image-ref: ${{ matrix.images }} 
+          
+#       - name: Archive Trivy Reports
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report
+#           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
+#               # check whether there are any OS package vulnerabilities 
+#       - name: Check vulnerability count 
+#         id: vuln_count 
+#         run: | 
+#           report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
+#           vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
+#           echo "vuln_count=$vuln_count"
+#           echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
+                
+#       - name: Run Copa action 
+#         if: steps.vuln_count.outputs.vuln_count != '0' 
+#         id: copa 
+#         # using main for testing purposes 
+#         # use a tag (such as v1 or v1.0.1) at a bare minimum 
+#         # recommendation is to pin to a digest for security and stability 
+#         # and rely on dependabot for digest/version updates 
+#         uses: project-copacetic/copa-action@v1.2.1
+#         with: 
+#           image: ${{ matrix.images }} 
+#           image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
+#           patched-tag: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+#           timeout: 15m
+
+#       - name: Push patched image
+#         id: push_patch_image
+#         if: steps.vuln_count.outputs.vuln_count != '0'
+#         run: |
+#           docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+#           docker push ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+#           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched | cut -d'@' -f 2)
+#           echo "Digest for ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched is ${DIGEST}"
+#           # Set output
+#           echo "::set-output name=digest::${DIGEST}"
+#       - name: Write Modified Image Info if Patched
+#         if: steps.vuln_count.outputs.vuln_count != '0'     
+#         run: |
+#           touch reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
+#           IMAGE_MAPPING_JSON="reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json"
+#           echo "{\"original_image\": \"${{ matrix.images }}\", \"patched_image\": \"ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched\"}" > $IMAGE_MAPPING_JSON  
+
+#       - name: Store Modified Image information if patched through copa
+#         if: steps.vuln_count.outputs.vuln_count != '0'
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info
+#           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
+#       - name: Sign image with a key
+#         if: steps.vuln_count.outputs.vuln_count != '0'
+#         run: |
+#           images="${TAG}@${DIGEST}"
+#           cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${images}
+#         env:
+#           TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+#           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+#           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+#           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
+  
+#   commit-reports: 
+#     needs: [use-container-scan-matrix,dev-pr]
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout our repository
+#         uses: actions/checkout@v4
+#         with:
+#           ref: main
+
+#       - name: Setup Snap          
+#         run: |
+#           sudo snap install yq
+
+#       - name: Download all artifacts
+#         uses: actions/download-artifact@v4
+#         with:
+#           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}
+
+#       - name: Find Patched Images and Update Helm if required.
+#         if: ${{needs.use-container-scan-matrix.outputs.vulnerability_count}}!= '0'
+#         run: |
+#           for dir in $(find reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}} -type d -name "*-image-patch-info"); do
+#           echo "Processing directory $dir"
+#           count=0
+#             for json_file in $(find $dir -name "*-image-patch-info.json"); do
+#               ((count++))
+#               echo "Processing JSON file $json_file"
+#               original_image=$(jq -r '.original_image' $json_file)
+#               patched_image=$(jq -r '.patched_image' $json_file)
+#               echo "Original Image: $original_image"
+#               echo "Patched Image: $patched_image"
+#               # Read helm paths from charts/docker_images.json
+#               helm_paths=$(jq -r --arg key "$original_image" '.[$key][]' charts/docker_images_${{needs.dev-pr.outputs.timestamp}}.json)
+              
+#               YAML_FILE="charts/${{needs.dev-pr.outputs.chartName}}/values.yaml"
+#               for helm_path in $helm_paths; do
+#                 echo "helm path: $helm_path"
+#                 IFS='.' #Internal Field Separator for Bash, treating '.' as delimiter
+#                 read -ra ADDR <<< "$helm_path"
+#                 registryPath=".${ADDR[0]}.${ADDR[1]}.registry"
+#                 repoPath=".${ADDR[0]}.${ADDR[1]}.repository"
+#                 tagPath=".${ADDR[0]}.${ADDR[1]}.tag"
+#                 echo $registryPath
+#                 echo $repoPath
+#                 echo $tagPath
+#                 registry=${patched_image%%/*} # get the part before the first /
+#                 repository_and_tag=${patched_image#*/} # get the part after the first /
+                
+#                 IFS=':' #Now treating ':' as delimiter
+#                 read -ra REPO <<< "$repository_and_tag"
+#                 repository="${REPO[0]}"
+#                 tag="${REPO[1]}"
+#                 echo $registry
+#                 echo $repository
+#                 echo $tag
+                
+#                 yq -i "${registryPath}=\"${registry}\"" $YAML_FILE
+#                 yq -i "${repoPath}=\"${repository}\"" $YAML_FILE
+#                 yq -i "${tagPath}=\"${tag}\"" $YAML_FILE
+
+#                done
+#             done
+#             YAML_CHART="charts/kube-prometheus-stack/Chart.yaml"
+
+#             if [ $count -ne 0 ]; then
+#               old_version=$(yq -r '.version' $YAML_CHART)
+#               IFS='-' read -ra VERSION_SUFFIX <<< "$old_version"
+#               IFS='.' read -ra VERSION <<< "${VERSION_SUFFIX[0]}"
+#               VERSION[2]=$((${VERSION[2]} + $count))
+#               if [ -n "${VERSION_SUFFIX[1]}" ]; then
+#                 new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}-${VERSION_SUFFIX[1]}"
+#               else
+#                 new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}"
+#               fi
+#               yq -i ".version=\"$new_version\"" $YAML_CHART
+#             fi
+#           done
+      
+      
+#       - name: Configure Git
+#         run: |
+#           git config --global user.name "GitHub Action"
+#           git config --global user.email "action@github.com"
+
+#       - name: Commit and Push Changes
+#         run: |
+#           if git status --porcelain; then
+#             git pull origin main
+#             git add reports/*
+#             git add charts/*
+#             git commit -m "Add scan results"
+#             git push origin main
+#           else
+#             echo "No changes to commit."
+#           fi
