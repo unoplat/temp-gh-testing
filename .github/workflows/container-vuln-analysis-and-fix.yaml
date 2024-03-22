@@ -17,15 +17,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v43
+        with:
+          since_last_remote_commit: true     
 
       - name: Install jq (JSON Processor)
         run: sudo apt-get install jq
 
-      - name: Set Matrix for Changed Charts
-        id: set-matrix
+      - name: Prepare matrix for changed paths
+        id: prepare-matrix
         run: |
           JSON_STRING='{"include":[]}'
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'core/' | awk -F"/" '{print $1"/"$2"/"$3}' | uniq)
+          CHANGED_FILES=$(echo "${{ steps.changed-files.outputs.all_changed_files }}" | tr ' ' '\n' | grep 'core/' | awk -F"/" '{print $1"/"$2"/"$3}' | uniq)
           for FILE in $CHANGED_FILES; do
             if [ -d "$FILE" ]; then
               JSON_STRING=$(echo $JSON_STRING | jq --arg app "$FILE" '.include += [{"app":$app}]')
