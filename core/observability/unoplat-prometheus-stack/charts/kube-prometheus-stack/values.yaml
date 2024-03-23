@@ -824,11 +824,11 @@ alertmanager:
 grafana:
   image:
     # -- The Docker registry
-    registry: ghcr.io
+    registry: docker.io
     # -- Docker image repository
-    repository: unoplat/temp-gh-testing/grafana
+    repository: grafana/grafana
     # Overrides the Grafana image tag whose default is the chart appVersion
-    tag: "10.2.2-patched"
+    tag: "10.2.2"
     sha: ""
     pullPolicy: IfNotPresent
     ## Optionally specify an array of imagePullSecrets.
