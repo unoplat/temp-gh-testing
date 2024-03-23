@@ -685,11 +685,11 @@ alertmanager:
     ##
     resources:
       requests:
-        memory: "100Mi"
+        memory: "200Mi"
         cpu: "200m"
       limits:
         memory: "500Mi"
-        cpu: "600m"
+        cpu: "300m"
     ## Pod anti-affinity can prevent the scheduler from placing Prometheus replicas on the same node.
     ## The default value "soft" means that the scheduler should *prefer* to not schedule two replica pods onto the same node but no guarantee is provided.
     ## The value "hard" means that the scheduler is *required* to not schedule two replica pods onto the same node.
