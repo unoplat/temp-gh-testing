@@ -66,10 +66,7 @@ jobs:
         with:
           name: unoplat-utility-image-scan 
           path: image-scan 
-      
-
-  
-
+          
   dev-pr:
     needs: prepare-matrix
     permissions:
