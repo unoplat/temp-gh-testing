@@ -1,5 +1,5 @@
 {
-  "kube-prometheus-stack" : {
+  "unoplat-prometheus-stack" : {
     "repositoryName": "unoplat-observability-prom-stack",
     "upStreamChartRepository": "prometheus-community",
     "upStreamChartRepositoryURL": "https://prometheus-community.github.io/helm-charts",

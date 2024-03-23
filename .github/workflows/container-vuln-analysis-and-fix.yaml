@@ -13,7 +13,8 @@ jobs:
   prepare-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.prepare-matrix.outputs.matrix }}
+      timestamp: ${{ steps.timestamp.outputs.timeStamp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,193 +41,233 @@ jobs:
           done
           echo "Matrix: $JSON_STRING"
           echo "::set-output name=matrix::$JSON_STRING"
-        
+
+      - name: Set timestamp
+        id: timestamp
+        run: |
+          TIMESTAMP=$(date +'%Y%m%d%H%M')
+          echo "::set-output name=timeStamp::${TIMESTAMP}" 
+
+      - name: Download Image Scan Utility for all parallel jobs
+        run: |
+          arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
+          os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
+          if [ "$arch" = "x64" ]; then
+            arch="amd64"
+          fi
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-utilities/releases/latest | jq -r '.tag_name' | xargs)
+          echo "Latest release info: $LATEST_RELEASE"
+          wget https://github.com/unoplat/unoplat-utilities/releases/download/$LATEST_RELEASE/$LATEST_RELEASE-$os-$arch.tar.gz
+          tar -xzf $LATEST_RELEASE-$os-$arch.tar.gz
+          rm image-scan*.tar.gz
+
+      - name: Upload Image scan utility as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unoplat-utility-image-scan 
+          path: image-scan 
+      
+
   
-#   dev-pr:
-#     permissions:
-#       contents: write
-#     runs-on: ubuntu-latest
-#     outputs:
-#       current-image-matrix: ${{ steps.set-image-matrix.outputs.image-matrix}}
-#       timestamp: ${{ steps.timestamp.outputs.timeStamp }}
-#       chartName: ${{ steps.read_json.outputs.upStreamChartName }}
 
-#     steps:
-#     - name: Checkout our repository
-#       uses: actions/checkout@v4
-#       with:
-#         ref: main
-#     - name: Read JSON Config
-#       id: read_json
-#       uses: actions/github-script@v5
-#       with:
-#         script: |
-#           const fs = require('fs');
-#           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
-#           core.setOutput('config', config);
-#           core.setOutput('upStreamChartName',config.upStreamChartName)
+  dev-pr:
+    needs: prepare-matrix
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{fromJson(needs.prepare-matrix.outputs.matrix)}}
+    steps:
+    - name: Checkout our repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: unoplat-utility-image-scan  
+    - name: Read JSON Config
+      id: read_json
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const appPath = '${{ matrix.app }}';
+          const appName = appPath.split('/').pop(); // Extracts the last segment of the path
+          const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
+          const appConfig = config[appName]; // Access the app-specific configuration
+          core.setOutput('config', appConfig);
+          core.setOutput('upStreamChartName', appConfig.upStreamChartName);
           
-#     - name: Conditional Docker Image Scan
-#       working-directory: charts
-#       env:
-#         HELM_VALUES_FILE_PATH: ${{ fromJson(steps.read_json.outputs.config).upStreamChartName }}/values.yaml
-#       run: |
-#         arch=$(echo "${{ runner.arch }}" | awk '{print tolower($0)}')
-#         os=$(echo "${{ runner.os }}" | awk '{print tolower($0)}')
-#         if [ "$arch" = "x64" ]; then
-#           arch="amd64"
-#         fi
-#         LATEST_RELEASE=$(curl -s https://api.github.com/repos/unoplat/unoplat-ci-cd-scripts/releases/latest | jq -r '.tag_name' | xargs)
-#         echo "Latest release info: $LATEST_RELEASE"
-#         wget https://github.com/unoplat/unoplat-ci-cd-scripts/releases/download/$LATEST_RELEASE/image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
-#         tar -xzf image-scan-$LATEST_RELEASE-$os-$arch.tar.gz
-#         if [ -f docker_images.json ]; then
-#           rm docker_images.json
-#         fi
-#         ./image-scan
-#         rm image-scan
-#         rm image-scan*.tar.gz
-          
-#     - name: Generate Matrix
-#       id: set-image-matrix
-#       uses: actions/github-script@v5
-#       with:
-#         script: |
-#           const fs = require('fs');
-#           const data = JSON.parse(fs.readFileSync('charts/docker_images.json', 'utf8'));
-#           let keysArray = Object.keys(data);
-#           core.setOutput('image-matrix', JSON.stringify(keysArray));
-# # use this file later for summarising container security reports
-#     - name: Set timestamp
-#       id: timestamp
-#       run: |
-#         TIMESTAMP=$(date +'%Y%m%d%H%M')
-#         echo "::set-output name=timeStamp::${TIMESTAMP}"  
-#         mkdir reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-#         touch reports/container-security-analysis/container-security-analysis-${TIMESTAMP}/README.md
-#         mv charts/docker_images.json charts/docker_images_$TIMESTAMP.json
-#         git config --local user.email "action@github.com"
-#         git config --local user.name "GitHub Action"
-#         git pull origin
-#         git add reports/container-security-analysis/container-security-analysis-${TIMESTAMP}
-#         git add charts/docker_images_$TIMESTAMP.json
-#         git commit -m "Add timestamp directory for container security analysis ${TIMESTAMP} and json for images"
-#         git push origin main
-
-#   use-container-scan-matrix:
-#     needs: dev-pr
-#     runs-on: ubuntu-latest
-#     outputs:
-#       vulnerability_count: ${{ steps.vuln_count.outputs.vuln_count }}
-#     strategy:
-#       matrix:
-#         images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
+    - name: Docker Image Scan
+      env:
+        HELM_VALUES_FILE_PATH: '${{ matrix.app }}/charts/${{ steps.read_json.outputs.upStreamChartName }}/values.yaml'
+      run: |
+        if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
+          rm '${{ matrix.app }}/charts/docker_images.json'
+        fi
+        ./unoplat-utility-image-scan/image-scan
+        rm unoplat-utility-image-scan/image-scan
         
-#     steps:
-#       - name: Checkout our repository
-#         uses: actions/checkout@v4
-#         with:
-#           ref: main
-#       - name: Install Cosign
-#         uses: sigstore/cosign-installer@v3.4.0
+    - name: Create JSON file per app
+      id: json_file_creation
+      run: |
+        APP_NAME=$(echo ${{ matrix.app }} | tr '/' '_')
+        JSON_PATH="${{ matrix.app }}/${APP_NAME}.json"
+        echo "{}" > $JSON_PATH  # Creates an empty JSON file, or you can populate it as needed
+        echo "Created JSON file at $JSON_PATH"    
 
-#       - name: Set up QEMU
-#         uses: docker/setup-qemu-action@v2.1.0
+    - name: Generate Matrix
+      id: set-image-matrix
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('${{ matrix.app }}/charts/docker_images.json', 'utf8'));
+          let keysArray = Object.keys(data);
+          // Load the previously created JSON file
+          const jsonFilePath = '${{ matrix.app }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json';
+          let jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
 
-#       - name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v3.1.0
+          // Add the image-matrix to the JSON data
+          jsonData['image-matrix'] = keysArray;
 
-#       - name: Login to GitHub Container Registry
-#         uses: docker/login-action@v2.1.0
-#         with:
-#           registry: ghcr.io
-#           username: ${{ github.actor }}
-#           password: ${{ secrets.GITHUB_TOKEN }}          
+          // Write the updated JSON data back to the file
+          fs.writeFileSync(jsonFilePath, JSON.stringify(jsonData, null, 2));
+# use this file later for summarising container security reports
+    - name: Create timestamp based folders
+      id: timestamp_folder
+      working-directory: '${{ matrix.app }}'
+      run: |
+        mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
+        touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}/README.md
+        mv charts/docker_images.json charts/docker_images_${{needs.prepare-matrix.outputs.timeStamp}}.json
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git pull origin
+        git add reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
+        git add charts/docker_images_${{needs.prepare-matrix.outputs.timeStamp}}.json
+        git commit -m "Add timestamp directory for container security analysis ${{needs.prepare-matrix.outputs.timeStamp}} and json for images"
+        # remember to change it to develop
+        git push origin main
+    - name: Upload Image scan utility as an artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: '${{ matrix.app }}-image-scan' 
+        path:  ${{ matrix.app }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json    
+
+  # use-container-scan-matrix:
+  #   needs: dev-pr
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     vulnerability_count: ${{ steps.vuln_count.outputs.vuln_count }}
+  #   strategy:
+  #     matrix:
+  #       images:  ${{fromJson(needs.dev-pr.outputs.current-image-matrix)}}
+        
+  #   steps:
+  #     - name: Checkout our repository
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: main
+  #     - name: Install Cosign
+  #       uses: sigstore/cosign-installer@v3.4.0
+
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v2.1.0
+
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3.1.0
+
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v2.1.0
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}          
           
-#       - name: Extract Docker Image and Tag
-#         id: docker_image_and_tag
-#         run: |
-#           export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
-#           export IMAGE_TAG=$(echo ${{ matrix.images }}   | awk -F'/' '{print $NF}' | cut -d ':' -f 2)
-#           export IMAGE_FULL_NAME=$(echo ${{ matrix.images }}  | rev | cut -d ':' -f 2- | rev)
-#           echo "::set-output name=docker_full_image_name::$IMAGE_FULL_NAME" 
-#           echo "::set-output name=docker_original_image_name::$IMAGE_NAME"
-#           echo "::set-output name=docker_original_image_tag::$IMAGE_TAG"
+  #     - name: Extract Docker Image and Tag
+  #       id: docker_image_and_tag
+  #       run: |
+  #         export IMAGE_NAME=$(echo ${{ matrix.images }}  | awk -F'/' '{print $NF}' | cut -d ':' -f 1)
+  #         export IMAGE_TAG=$(echo ${{ matrix.images }}   | awk -F'/' '{print $NF}' | cut -d ':' -f 2)
+  #         export IMAGE_FULL_NAME=$(echo ${{ matrix.images }}  | rev | cut -d ':' -f 2- | rev)
+  #         echo "::set-output name=docker_full_image_name::$IMAGE_FULL_NAME" 
+  #         echo "::set-output name=docker_original_image_name::$IMAGE_NAME"
+  #         echo "::set-output name=docker_original_image_tag::$IMAGE_TAG"
 
-
+  #     - name: Generate Trivy Report 
+  #       uses: aquasecurity/trivy-action@master
+  #       with: 
+  #         scan-type: 'image' 
+  #         format: 'json' 
+  #         output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
+  #         ignore-unfixed: true 
+  #         vuln-type: "os"
+  #         severity: 'CRITICAL,HIGH' 
+  #         image-ref: ${{ matrix.images }} 
           
-#       - name: Generate Trivy Report 
-#         uses: aquasecurity/trivy-action@master
-#         with: 
-#           scan-type: 'image' 
-#           format: 'json' 
-#           output: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
-#           ignore-unfixed: true 
-#           vuln-type: "os"
-#           severity: 'CRITICAL,HIGH' 
-#           image-ref: ${{ matrix.images }} 
-          
-#       - name: Archive Trivy Reports
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report
-#           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
-#               # check whether there are any OS package vulnerabilities 
-#       - name: Check vulnerability count 
-#         id: vuln_count 
-#         run: | 
-#           report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
-#           vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
-#           echo "vuln_count=$vuln_count"
-#           echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
+  #     - name: Archive Trivy Reports
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report
+  #         path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
+  #             # check whether there are any OS package vulnerabilities 
+  #     - name: Check vulnerability count 
+  #       id: vuln_count 
+  #       run: | 
+  #         report_file=reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json
+  #         vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file") 
+  #         echo "vuln_count=$vuln_count"
+  #         echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
                 
-#       - name: Run Copa action 
-#         if: steps.vuln_count.outputs.vuln_count != '0' 
-#         id: copa 
-#         # using main for testing purposes 
-#         # use a tag (such as v1 or v1.0.1) at a bare minimum 
-#         # recommendation is to pin to a digest for security and stability 
-#         # and rely on dependabot for digest/version updates 
-#         uses: project-copacetic/copa-action@v1.2.1
-#         with: 
-#           image: ${{ matrix.images }} 
-#           image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
-#           patched-tag: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-#           timeout: 15m
+  #     - name: Run Copa action 
+  #       if: steps.vuln_count.outputs.vuln_count != '0' 
+  #       id: copa 
+  #       # using main for testing purposes 
+  #       # use a tag (such as v1 or v1.0.1) at a bare minimum 
+  #       # recommendation is to pin to a digest for security and stability 
+  #       # and rely on dependabot for digest/version updates 
+  #       uses: project-copacetic/copa-action@v1.2.1
+  #       with: 
+  #         image: ${{ matrix.images }} 
+  #         image-report: "reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-container-report.json" 
+  #         patched-tag: ${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+  #         timeout: 15m
 
-#       - name: Push patched image
-#         id: push_patch_image
-#         if: steps.vuln_count.outputs.vuln_count != '0'
-#         run: |
-#           docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-#           docker push ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-#           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched | cut -d'@' -f 2)
-#           echo "Digest for ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched is ${DIGEST}"
-#           # Set output
-#           echo "::set-output name=digest::${DIGEST}"
-#       - name: Write Modified Image Info if Patched
-#         if: steps.vuln_count.outputs.vuln_count != '0'     
-#         run: |
-#           touch reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
-#           IMAGE_MAPPING_JSON="reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json"
-#           echo "{\"original_image\": \"${{ matrix.images }}\", \"patched_image\": \"ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched\"}" > $IMAGE_MAPPING_JSON  
+  #     - name: Push patched image
+  #       id: push_patch_image
+  #       if: steps.vuln_count.outputs.vuln_count != '0'
+  #       run: |
+  #         docker tag ${{ steps.copa.outputs.patched-image }} ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+  #         docker push ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+  #         DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched | cut -d'@' -f 2)
+  #         echo "Digest for ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched is ${DIGEST}"
+  #         # Set output
+  #         echo "::set-output name=digest::${DIGEST}"
+  #     - name: Write Modified Image Info if Patched
+  #       if: steps.vuln_count.outputs.vuln_count != '0'     
+  #       run: |
+  #         touch reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
+  #         IMAGE_MAPPING_JSON="reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json"
+  #         echo "{\"original_image\": \"${{ matrix.images }}\", \"patched_image\": \"ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched\"}" > $IMAGE_MAPPING_JSON  
 
-#       - name: Store Modified Image information if patched through copa
-#         if: steps.vuln_count.outputs.vuln_count != '0'
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info
-#           path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
-#       - name: Sign image with a key
-#         if: steps.vuln_count.outputs.vuln_count != '0'
-#         run: |
-#           images="${TAG}@${DIGEST}"
-#           cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${images}
-#         env:
-#           TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
-#           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-#           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-#           DIGEST: ${{ steps.push_patch_image.outputs.digest }}
+  #     - name: Store Modified Image information if patched through copa
+  #       if: steps.vuln_count.outputs.vuln_count != '0'
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: ${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info
+  #         path: reports/container-security-analysis/container-security-analysis-${{needs.dev-pr.outputs.timestamp}}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}-image-patch-info.json 
+  #     - name: Sign image with a key
+  #       if: steps.vuln_count.outputs.vuln_count != '0'
+  #       run: |
+  #         images="${TAG}@${DIGEST}"
+  #         cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${images}
+  #       env:
+  #         TAG: ghcr.io/${{ github.repository }}/${{ steps.docker_image_and_tag.outputs.docker_original_image_name }}:${{ steps.docker_image_and_tag.outputs.docker_original_image_tag}}-patched
+  #         COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+  #         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+  #         DIGEST: ${{ steps.push_patch_image.outputs.digest }}
   
 #   commit-reports: 
 #     needs: [use-container-scan-matrix,dev-pr]
