@@ -72,7 +72,7 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{fromJson(needs.prepare-matrix.outputs.matrix).app}}
+      matrix: ${{fromJson(needs.prepare-matrix.outputs.matrix)}}
     steps:
     - name: Checkout our repository
       uses: actions/checkout@v4
@@ -88,7 +88,7 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const appPath = '${{ matrix }}';
+          const appPath = '${{ matrix.app }}';
           const appName = appPath.split('/').pop(); // Extracts the last segment of the path
           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
           const appConfig = config[appName]; // Access the app-specific configuration
@@ -97,10 +97,10 @@ jobs:
           
     - name: Docker Image Scan
       env:
-        HELM_VALUES_FILE_PATH: '${{ matrix }}/charts/${{ steps.read_json.outputs.upStreamChartName }}/values.yaml'
+        HELM_VALUES_FILE_PATH: '${{ matrix.app }}/charts/${{ steps.read_json.outputs.upStreamChartName }}/values.yaml'
       run: |
-        if [ -f '${{ matrix }}/charts/docker_images.json' ]; then
-          rm '${{ matrix }}/charts/docker_images.json'
+        if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
+          rm '${{ matrix.app }}/charts/docker_images.json'
         fi
         ./unoplat-utility-image-scan/image-scan
         rm unoplat-utility-image-scan/image-scan
@@ -108,10 +108,10 @@ jobs:
     - name: Create JSON file per app
       id: json_file_creation
       run: |
-        APP_NAME=$(echo ${{ matrix }} | tr '/' '_')
-        JSON_PATH="${{ matrix }}/${APP_NAME}.json"
+        APP_NAME=$(echo ${{ matrix.app }} | tr '/' '_')
+        JSON_PATH="${{ matrix.app }}/${APP_NAME}.json"
         echo "{}" > $JSON_PATH  # Creates an empty JSON file, or you can populate it as needed
-        echo "Created JSON file at $JSON_PATH"    
+        echo "app-name=${APP_NAME}" >> $GITHUB_OUTPUT    
 
     - name: Generate Matrix
       id: set-image-matrix
@@ -119,10 +119,10 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('${{ matrix }}/charts/docker_images.json', 'utf8'));
+          const data = JSON.parse(fs.readFileSync('${{ matrix.app }}/charts/docker_images.json', 'utf8'));
           let keysArray = Object.keys(data);
           // Load the previously created JSON file
-          const jsonFilePath = '${{ matrix }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json';
+          const jsonFilePath = '${{ matrix.app }}/${{ steps.json_file_creation.outputs.app-name }}.json';
           let jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
 
           // Add the image-matrix to the JSON data
@@ -150,7 +150,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: '${{ matrix }}-image-scan' 
-        path:  ${{ matrix }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json    
+        path:  ${{ matrix }}/${{ steps.json_file_creation.outputs.app-name }}.json    
 
   # use-container-scan-matrix:
   #   needs: dev-pr
