@@ -39,7 +39,7 @@ jobs:
               MATRIX_ARRAY+=("\"$FILE\"")
             fi
           done
-          MATRIX_JSON="{\"app\": [${MATRIX_ARRAY[*]}]}"
+          MATRIX_JSON="{\"app\": [$(IFS=, ; echo "${MATRIX_ARRAY[*]}")]}"
           echo "Matrix: $MATRIX_JSON"
           echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Set timestamp
