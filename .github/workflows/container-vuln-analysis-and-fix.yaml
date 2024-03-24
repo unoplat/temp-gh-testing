@@ -102,8 +102,8 @@ jobs:
         if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
           rm '${{ matrix.app }}/charts/docker_images.json'
         fi
-        ./unoplat-utility-image-scan/image-scan
-        rm unoplat-utility-image-scan/image-scan
+        ./image-scan
+        rm image-scan
         
     - name: Create JSON file per app
       id: json_file_creation
