@@ -32,21 +32,20 @@ jobs:
       - name: Prepare matrix for changed paths
         id: prepare-matrix
         run: |
-          JSON_STRING='{"include":[]}'
+          MATRIX_ARRAY=()
           CHANGED_FILES=$(echo "${{ steps.changed-files.outputs.all_changed_files }}" | tr ' ' '\n' | grep 'core/' | awk -F"/" '{print $1"/"$2"/"$3}' | uniq)
           for FILE in $CHANGED_FILES; do
             if [ -d "$FILE" ]; then
-              JSON_STRING=$(echo $JSON_STRING | jq --arg app "$FILE" '.include += [{"app":$app}]')
+              MATRIX_ARRAY+=("\"$FILE\"")
             fi
           done
-          echo "Matrix: $JSON_STRING"
-          echo "::set-output name=matrix::$JSON_STRING"
-
+          MATRIX_JSON="{\"app\": [${MATRIX_ARRAY[*]}]}"
+          echo "Matrix: $MATRIX_JSON"
+          echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Set timestamp
         id: timestamp
         run: |
           TIMESTAMP=$(date +'%Y%m%d%H%M')
-          echo "::set-output name=timeStamp::${TIMESTAMP}" 
 
       - name: Download Image Scan Utility for all parallel jobs
         run: |
@@ -73,7 +72,7 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{fromJson(needs.prepare-matrix.outputs.matrix)}}
+      matrix: ${{fromJson(needs.prepare-matrix.outputs.matrix).app}}
     steps:
     - name: Checkout our repository
       uses: actions/checkout@v4
@@ -89,7 +88,7 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const appPath = '${{ matrix.app }}';
+          const appPath = '${{ matrix }}';
           const appName = appPath.split('/').pop(); // Extracts the last segment of the path
           const config = JSON.parse(fs.readFileSync('.github/github-action-config.json', 'utf8'));
           const appConfig = config[appName]; // Access the app-specific configuration
@@ -98,10 +97,10 @@ jobs:
           
     - name: Docker Image Scan
       env:
-        HELM_VALUES_FILE_PATH: '${{ matrix.app }}/charts/${{ steps.read_json.outputs.upStreamChartName }}/values.yaml'
+        HELM_VALUES_FILE_PATH: '${{ matrix }}/charts/${{ steps.read_json.outputs.upStreamChartName }}/values.yaml'
       run: |
-        if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
-          rm '${{ matrix.app }}/charts/docker_images.json'
+        if [ -f '${{ matrix }}/charts/docker_images.json' ]; then
+          rm '${{ matrix }}/charts/docker_images.json'
         fi
         ./unoplat-utility-image-scan/image-scan
         rm unoplat-utility-image-scan/image-scan
@@ -109,8 +108,8 @@ jobs:
     - name: Create JSON file per app
       id: json_file_creation
       run: |
-        APP_NAME=$(echo ${{ matrix.app }} | tr '/' '_')
-        JSON_PATH="${{ matrix.app }}/${APP_NAME}.json"
+        APP_NAME=$(echo ${{ matrix }} | tr '/' '_')
+        JSON_PATH="${{ matrix }}/${APP_NAME}.json"
         echo "{}" > $JSON_PATH  # Creates an empty JSON file, or you can populate it as needed
         echo "Created JSON file at $JSON_PATH"    
 
@@ -120,10 +119,10 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('${{ matrix.app }}/charts/docker_images.json', 'utf8'));
+          const data = JSON.parse(fs.readFileSync('${{ matrix }}/charts/docker_images.json', 'utf8'));
           let keysArray = Object.keys(data);
           // Load the previously created JSON file
-          const jsonFilePath = '${{ matrix.app }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json';
+          const jsonFilePath = '${{ matrix }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json';
           let jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
 
           // Add the image-matrix to the JSON data
@@ -134,7 +133,7 @@ jobs:
 # use this file later for summarising container security reports
     - name: Create timestamp based folders
       id: timestamp_folder
-      working-directory: '${{ matrix.app }}'
+      working-directory: '${{ matrix }}'
       run: |
         mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
         touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}/README.md
@@ -150,8 +149,8 @@ jobs:
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
-        name: '${{ matrix.app }}-image-scan' 
-        path:  ${{ matrix.app }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json    
+        name: '${{ matrix }}-image-scan' 
+        path:  ${{ matrix }}/${{ steps.json_file_creation.outputs.APP_NAME }}.json    
 
   # use-container-scan-matrix:
   #   needs: dev-pr
@@ -361,3 +360,7 @@ jobs:
 #           else
 #             echo "No changes to commit."
 #           fi
+
+    MATRIX_JSON="{\"app\": [${MATRIX_ARRAY[*]}]}"
+    echo "Matrix: $MATRIX_JSON"
+    echo "::set-output name=matrix::$MATRIX_JSON"
