@@ -77,7 +77,7 @@ jobs:
     - name: Checkout our repository
       uses: actions/checkout@v4
       with:
-        ref: main
+        ref: develop
     - name: Download Artifact
       uses: actions/download-artifact@v4
       with:
@@ -102,6 +102,7 @@ jobs:
         if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
           rm '${{ matrix.app }}/charts/docker_images.json'
         fi
+        chmod +x image-scan
         ./image-scan
         rm image-scan
         
@@ -133,7 +134,7 @@ jobs:
 # use this file later for summarising container security reports
     - name: Create timestamp based folders
       id: timestamp_folder
-      working-directory: '${{ matrix }}'
+      working-directory: '${{ matrix.app }}'
       run: |
         mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
         touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}/README.md
@@ -145,12 +146,12 @@ jobs:
         git add charts/docker_images_${{needs.prepare-matrix.outputs.timeStamp}}.json
         git commit -m "Add timestamp directory for container security analysis ${{needs.prepare-matrix.outputs.timeStamp}} and json for images"
         # remember to change it to develop
-        git push origin main
+        git push origin develop
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
-        name: '${{ matrix }}-image-scan' 
-        path:  ${{ matrix }}/${{ steps.json_file_creation.outputs.app-name }}.json    
+        name: '${{ matrix.app }}-image-scan' 
+        path:  ${{ matrix.app }}/${{ steps.json_file_creation.outputs.app-name }}.json    
 
   # use-container-scan-matrix:
   #   needs: dev-pr
