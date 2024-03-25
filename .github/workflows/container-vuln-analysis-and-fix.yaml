@@ -129,7 +129,7 @@ jobs:
 
           // Add the image-matrix to the JSON data
           jsonData['image-matrix'] = keysArray;
-
+          console.log(JSON.stringify(jsonData, null, 2));
           // Write the updated JSON data back to the file
           fs.writeFileSync(jsonFilePath, JSON.stringify(jsonData, null, 2));
 # use this file later for summarising container security reports
@@ -151,7 +151,7 @@ jobs:
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
-        name: '${{ matrix.app }}-image-scan' 
+        name: 'unoplat-image-scan' 
         path:  ${{ matrix.app }}/${{ steps.json_file_creation.outputs.app-name }}.json    
 
   # use-container-scan-matrix:
