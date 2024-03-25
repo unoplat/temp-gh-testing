@@ -102,6 +102,7 @@ jobs:
         if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
           rm '${{ matrix.app }}/charts/docker_images.json'
         fi
+        chmod +x image-scan
         ./image-scan
         rm image-scan
         
