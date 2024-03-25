@@ -134,7 +134,7 @@ jobs:
 # use this file later for summarising container security reports
     - name: Create timestamp based folders
       id: timestamp_folder
-      working-directory: '${{ matrix }}'
+      working-directory: '${{ matrix.app }}'
       run: |
         mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
         touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}/README.md
