@@ -145,7 +145,7 @@ jobs:
         git add charts/docker_images_${{needs.prepare-matrix.outputs.timeStamp}}.json
         git commit -m "Add timestamp directory for container security analysis ${{needs.prepare-matrix.outputs.timeStamp}} and json for images"
         # remember to change it to develop
-        git push origin main
+        git push origin develop
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
