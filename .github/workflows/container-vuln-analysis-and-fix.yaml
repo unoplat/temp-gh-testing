@@ -98,6 +98,7 @@ jobs:
     - name: Docker Image Scan
       env:
         HELM_VALUES_FILE_PATH: '${{ matrix.app }}/charts/${{ steps.read_json.outputs.upStreamChartName }}/values.yaml'
+        DOCKER_IMAGES_JSON_PATH: '${{ matrix.app }}/charts/'
       run: |
         if [ -f '${{ matrix.app }}/charts/docker_images.json' ]; then
           rm '${{ matrix.app }}/charts/docker_images.json'
