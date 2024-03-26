@@ -14,5 +14,23 @@
       { "name": "grafana", "url": "https://grafana.github.io/helm-charts" },
       { "name": "prometheus-windows-exporter", "url": "https://prometheus-community.github.io/helm-charts" }
     ]
+  },
+  "unoplat-signoz" : {
+    "repositoryName": "unoplat-signoz",
+    "upStreamChartRepository": "prometheus-community",
+    "upStreamChartRepositoryURL": "https://prometheus-community.github.io/helm-charts",
+    "upStreamChartName": "signoz",
+    "name": "unoplat-observability-prom-stack",
+    "chartPath": "kube-prometheus-stack",
+    "namespace": "unoplat-observability",
+    "repositoryURL" : "https://unoplat.github.io/unoplat-observability-prom-stack",
+    "helmDependencies": [
+      { "name": "kube-state-metrics", "url": "https://prometheus-community.github.io/helm-charts" },
+      { "name": "prometheus-node-exporter", "url": "https://prometheus-community.github.io/helm-charts" },
+      { "name": "grafana", "url": "https://grafana.github.io/helm-charts" },
+      { "name": "prometheus-windows-exporter", "url": "https://prometheus-community.github.io/helm-charts" }
+    ]
   }
+
+
   }
