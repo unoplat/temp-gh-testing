@@ -121,17 +121,34 @@ jobs:
       with:
         script: |
           const fs = require('fs');
+          // Load the docker images JSON file
           const data = JSON.parse(fs.readFileSync('${{ matrix.app }}/charts/docker_images.json', 'utf8'));
-          let keysArray = Object.keys(data);
-          // Load the previously created JSON file
+          
+          // Initialize the apps array
+          const apps = [];
+    
+          // Iterate over each key (image name) in the data object
+          for (const [imageName, paths] of Object.entries(data)) {
+            // For each image, create an object and push it to the apps array
+            apps.push({
+              imageName: imageName,
+              path: '${{ matrix.app }}',
+              name: '${{ steps.json_file_creation.outputs.app-name }}',
+              paths: paths // Keep paths as an array
+            });
+          }
+    
+          // Create the final object to be written to the JSON file
+          const finalJson = { apps };
+    
+          // Log the final JSON structure for debugging
+          console.log(JSON.stringify(finalJson, null, 2));
+    
+          // Path to the output JSON file
           const jsonFilePath = '${{ matrix.app }}/${{ steps.json_file_creation.outputs.app-name }}.json';
-          let jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
-
-          // Add the image-matrix to the JSON data
-          jsonData['image-matrix'] = keysArray;
-
-          // Write the updated JSON data back to the file
-          fs.writeFileSync(jsonFilePath, JSON.stringify(jsonData, null, 2));
+          
+          // Write the final JSON object to the file
+          fs.writeFileSync(jsonFilePath, JSON.stringify(finalJson, null, 2));
 # use this file later for summarising container security reports
     - name: Create timestamp based folders
       id: timestamp_folder
@@ -151,7 +168,7 @@ jobs:
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
-        name: '${{ matrix.app }}-image-scan' 
+        name: 'unoplat-image-scan' 
         path:  ${{ matrix.app }}/${{ steps.json_file_creation.outputs.app-name }}.json    
 
   # use-container-scan-matrix:
