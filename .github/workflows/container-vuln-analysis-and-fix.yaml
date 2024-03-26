@@ -169,7 +169,7 @@ jobs:
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
-        name: 'unoplat-image-scan' 
+        name: '${{ matrix.app }}-unoplat-image-scan' 
         path:  ${{ matrix.app }}/${{ steps.json_file_creation.outputs.app-name }}.json    
 
   # use-container-scan-matrix:
