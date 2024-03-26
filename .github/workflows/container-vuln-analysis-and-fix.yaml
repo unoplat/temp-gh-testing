@@ -60,7 +60,21 @@ jobs:
           wget https://github.com/unoplat/unoplat-utilities/releases/download/$LATEST_RELEASE/$LATEST_RELEASE-$os-$arch.tar.gz
           tar -xzf $LATEST_RELEASE-$os-$arch.tar.gz
           rm image-scan*.tar.gz
-
+      - name: Create timestamp based folders
+        id: timestamp_folder
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git pull origin
+          for APP_PATH in $(echo '${{fromJson(steps.prepare-matrix.outputs.matrix).app}}' | jq -r '.[]'); do
+            mkdir $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}
+            touch $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}/README.md
+            mv $APP_PATH/charts/docker_images.json $APP_PATH/charts/docker_images_${{steps.timestamp.outputs.timestamp}}.json
+            git add $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}
+            git add $APP_PATH/charts/docker_images_${{steps.timestamp.outputs.timestamp}}.json
+            git commit -m "Add timestamp directory for container security analysis ${{steps.timestamp.outputs.timestamp}} and json for images"
+            git push origin develop
+          done
       - name: Upload Image scan utility as an artifact
         uses: actions/upload-artifact@v4
         with:
@@ -151,21 +165,7 @@ jobs:
           // Write the final JSON object to the file
           fs.writeFileSync(jsonFilePath, JSON.stringify(finalJson, null, 2));
 # use this file later for summarising container security reports
-    - name: Create timestamp based folders
-      id: timestamp_folder
-      working-directory: '${{ matrix.app }}'
-      run: |
-        mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timestamp}}
-        touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timestamp}}/README.md
-        mv charts/docker_images.json charts/docker_images_${{needs.prepare-matrix.outputs.timestamp}}.json
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git pull origin
-        git add reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timestamp}}
-        git add charts/docker_images_${{needs.prepare-matrix.outputs.timestamp}}.json
-        git commit -m "Add timestamp directory for container security analysis ${{needs.prepare-matrix.outputs.timestamp}} and json for images"
-        # remember to change it to develop
-        git push origin develop
+
     - name: Upload Image scan utility as an artifact
       uses: actions/upload-artifact@v4
       with:
