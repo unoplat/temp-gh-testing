@@ -66,8 +66,9 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git pull origin
-          for APP_PATH in $(echo '${{fromJson(steps.prepare-matrix.outputs.matrix).app}}' | jq -r '.[]'); do
-            mkdir $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}
+          APP_JSON='${{ fromJson(steps.prepare-matrix.outputs.matrix).app }}'
+          for APP_PATH in $(echo $APP_JSON | jq -r '.[]'); do
+            mkdir -p $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}
             touch $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}/README.md
             mv $APP_PATH/charts/docker_images.json $APP_PATH/charts/docker_images_${{steps.timestamp.outputs.timestamp}}.json
             git add $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}
