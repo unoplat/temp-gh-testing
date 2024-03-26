@@ -62,11 +62,16 @@ jobs:
           rm image-scan*.tar.gz
       - name: Create timestamp based folders
         id: timestamp_folder
+        env:
+          MATRIX_JSON: ${{ steps.prepare-matrix.outputs.matrix }}
         run: |
+          echo $MATRIX_JSON
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git pull origin
-          for APP_PATH in $(echo '${{fromJson(steps.prepare-matrix.outputs.matrix).app}}' | jq -r '.[]'); do
+          git pull origin develop
+          readarray -t APP_PATHS_ARRAY < <(echo $MATRIX_JSON | jq -r '.app[]')
+          for APP_PATH in "${APP_PATHS_ARRAY[@]}"; do
+            echo "$APP_PATH"
             mkdir $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}
             touch $APP_PATH/reports/container-security-analysis/container-security-analysis-${{steps.timestamp.outputs.timestamp}}/README.md
             mv $APP_PATH/charts/docker_images.json $APP_PATH/charts/docker_images_${{steps.timestamp.outputs.timestamp}}.json
