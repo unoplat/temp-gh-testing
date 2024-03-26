@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.prepare-matrix.outputs.matrix }}
-      timestamp: ${{ steps.timestamp.outputs.timeStamp }}
+      timestamp: ${{ steps.timestamp.outputs.timestamp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,6 +46,7 @@ jobs:
         id: timestamp
         run: |
           TIMESTAMP=$(date +'%Y%m%d%H%M')
+          echo "::set-output name=timestamp::$TIMESTAMP"
 
       - name: Download Image Scan Utility for all parallel jobs
         run: |
@@ -154,15 +155,15 @@ jobs:
       id: timestamp_folder
       working-directory: '${{ matrix.app }}'
       run: |
-        mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
-        touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}/README.md
-        mv charts/docker_images.json charts/docker_images_${{needs.prepare-matrix.outputs.timeStamp}}.json
+        mkdir reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timestamp}}
+        touch reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timestamp}}/README.md
+        mv charts/docker_images.json charts/docker_images_${{needs.prepare-matrix.outputs.timestamp}}.json
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git pull origin
-        git add reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timeStamp}}
-        git add charts/docker_images_${{needs.prepare-matrix.outputs.timeStamp}}.json
-        git commit -m "Add timestamp directory for container security analysis ${{needs.prepare-matrix.outputs.timeStamp}} and json for images"
+        git add reports/container-security-analysis/container-security-analysis-${{needs.prepare-matrix.outputs.timestamp}}
+        git add charts/docker_images_${{needs.prepare-matrix.outputs.timestamp}}.json
+        git commit -m "Add timestamp directory for container security analysis ${{needs.prepare-matrix.outputs.timestamp}} and json for images"
         # remember to change it to develop
         git push origin develop
     - name: Upload Image scan utility as an artifact
